@@ -400,6 +400,8 @@ public class SLControllerSetup extends AbstractControllerSetup<SLControlSurface,
         final ModeManager modeManager = surface.getModeManager ();
         modeManager.get (Modes.VOLUME).updateDisplay ();
         surface.getViewManager ().setActive (Views.CONTROL);
-        modeManager.setActive (Modes.TRACK);
+        // ltlandry customization - Make PAN the default
+        // modeManager.setActive (Modes.TRACK);
+        modeManager.setActive (Modes.PAN);
     }
 }

@@ -34,7 +34,8 @@ public class TrackModeCommand extends AbstractTriggerCommand<SLMkIIIControlSurfa
     {
         super (model, surface);
 
-        this.modeSelectCommand = new ModeMultiSelectCommand<> (this.model, surface, Modes.TRACK, Modes.VOLUME, Modes.PAN, Modes.SEND1, Modes.SEND2, Modes.SEND3, Modes.SEND4, Modes.SEND5, Modes.SEND6, Modes.SEND7, Modes.SEND8);
+        // ltlandry customizations - change order of the modes
+        this.modeSelectCommand = new ModeMultiSelectCommand<> (this.model, surface, Modes.PAN, Modes.SEND1, Modes.SEND2, Modes.SEND3, Modes.SEND4, Modes.SEND5, Modes.SEND6, Modes.SEND7, Modes.SEND8, Modes.TRACK, Modes.VOLUME);
     }
 
 
