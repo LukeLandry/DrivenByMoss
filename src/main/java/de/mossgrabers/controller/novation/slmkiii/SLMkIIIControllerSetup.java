@@ -585,7 +585,9 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
         surface.getViewManager ().setActive (Views.SESSION);
 
         final ModeManager modeManager = surface.getModeManager ();
-        modeManager.setActive (Modes.TRACK);
+        // ltlandry customizations - set default to PAN
+        // modeManager.setActive (Modes.TRACK);
+        modeManager.setActive (Modes.PAN);
 
         this.host.scheduleTask ( () -> surface.getMidiOutput ().sendSysex (DeviceInquiry.createQuery ()), 1000);
     }
