@@ -113,6 +113,8 @@ public class SLMkIIILightGuide extends LightGuideImpl
         if (this.keyboardManager.isKeyPressed (note))
             return isRecording ? AbstractPlayView.COLOR_RECORD : AbstractPlayView.COLOR_PLAY;
 
-        return AbstractView.replaceOctaveColorWithTrackColor (track, this.keyboardManager.getColor (note));
+        // LTL - always use same octave color regardless of selected track
+        // return AbstractView.replaceOctaveColorWithTrackColor (track, this.keyboardManager.getColor (note));
+        return this.keyboardManager.getColor (note);
     }
 }
