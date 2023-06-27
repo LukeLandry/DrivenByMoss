@@ -68,7 +68,8 @@ public class PlayView extends AbstractPlayView<LaunchpadControlSurface, Launchpa
      */
     public PlayView (final String name, final LaunchpadControlSurface surface, final IModel model)
     {
-        super (name, surface, model, true);
+        // LTL - set use track color to false
+        super (name, surface, model, false);
 
         final Configuration configuration = this.surface.getConfiguration ();
         configuration.addSettingObserver (AbstractConfiguration.ACTIVATE_FIXED_ACCENT, this::initMaxVelocity);
