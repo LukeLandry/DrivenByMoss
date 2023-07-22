@@ -13,6 +13,7 @@ import de.mossgrabers.controller.generic.flexihandler.DeviceHandler;
 import de.mossgrabers.controller.generic.flexihandler.EqHandler;
 import de.mossgrabers.controller.generic.flexihandler.FxTrackHandler;
 import de.mossgrabers.controller.generic.flexihandler.GlobalHandler;
+import de.mossgrabers.controller.generic.flexihandler.InstrumentDeviceHandler;
 import de.mossgrabers.controller.generic.flexihandler.LayerHandler;
 import de.mossgrabers.controller.generic.flexihandler.LayoutHandler;
 import de.mossgrabers.controller.generic.flexihandler.MarkerHandler;
@@ -184,6 +185,7 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
         ms.enableMainDrumDevice (false);
         ms.setNumMarkers (8);
         ms.enableDevice (DeviceID.EQ);
+        ms.enableDevice (DeviceID.FIRST_INSTRUMENT);
         this.model = this.factory.createModel (this.configuration, this.colorManager, this.valueChanger, this.scales, ms);
 
         this.model.getTrackBank ().setIndication (true);
@@ -197,11 +199,14 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
         final IMidiAccess midiAccess = this.factory.createMidiAccess ();
         final IMidiOutput output = midiAccess.createOutput ();
 
+        final String keyboardInputName = this.configuration.getKeyboardInputName ();
+        final String portName = keyboardInputName.isBlank () ? "Generic Flexi" : keyboardInputName;
+
         final String inputName;
         if (this.configuration.isMPEEndabled ())
-            inputName = "Generic Flexi (MPE)";
+            inputName = portName + " (MPE)";
         else
-            inputName = this.configuration.getKeyboardChannel () < 0 ? null : "Generic Flexi";
+            inputName = this.configuration.getKeyboardChannel () < 0 ? null : portName;
 
         final List<String> filters = this.getMidiFilters ();
         final IMidiInput input = midiAccess.createInput (inputName, filters.toArray (new String [filters.size ()]));
@@ -257,7 +262,8 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
 
             final INoteInput input = surface.getMidiInput ().getDefaultNoteInput ();
             final IMidiOutput output = surface.getMidiOutput ();
-
+            if (input == null || output == null)
+                return;
             final boolean mpeEnabled = this.configuration.isMPEEndabled ();
             input.enableMPE (mpeEnabled);
             // Enable MPE zone 1 with all 15 channels
@@ -268,11 +274,15 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
         }, 2000));
 
         this.configuration.addSettingObserver (GenericFlexiConfiguration.MPE_PITCHBEND_RANGE, () -> surface.scheduleTask ( () -> {
+
             final INoteInput input = surface.getMidiInput ().getDefaultNoteInput ();
             final IMidiOutput output = surface.getMidiOutput ();
+            if (input == null || output == null)
+                return;
             final int mpePitchBendRange = this.configuration.getMPEPitchBendRange ();
             input.setMPEPitchBendSensitivity (mpePitchBendRange);
             output.sendMPEPitchbendRange (AbstractMidiOutput.ZONE_1, mpePitchBendRange);
+
         }, 2000));
 
         this.activateBrowserObserver (Modes.BROWSER);
@@ -318,6 +328,7 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
         surface.registerHandler (new FxTrackHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
         surface.registerHandler (new MasterHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
         surface.registerHandler (new DeviceHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new InstrumentDeviceHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
         surface.registerHandler (new LayerHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
         surface.registerHandler (new EqHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
         surface.registerHandler (new BrowserHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
