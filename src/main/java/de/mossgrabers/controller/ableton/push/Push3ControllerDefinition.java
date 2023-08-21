@@ -31,7 +31,6 @@ public class Push3ControllerDefinition extends DefaultControllerDefinition
     /** Push 3 USB display endpoint. */
     private static final byte  ENDPOINT_ADDRESS = (byte) 0x01;
 
-
     /**
      * Constructor.
      */
@@ -49,7 +48,7 @@ public class Push3ControllerDefinition extends DefaultControllerDefinition
         switch (os)
         {
             case WINDOWS:
-                midiDiscoveryPairs.addAll (this.createDeviceDiscoveryPairs ("Ableton Push 3"));
+                midiDiscoveryPairs.addAll (this.createDeviceDiscoveryPairs ("Ableton Push 3 MIDI"));
                 break;
 
             case MAC:
@@ -57,7 +56,7 @@ public class Push3ControllerDefinition extends DefaultControllerDefinition
                 break;
 
             case LINUX:
-                midiDiscoveryPairs.addAll (this.createLinuxDeviceDiscoveryPairs ("A3", "A3"));
+                midiDiscoveryPairs.add (this.addDeviceDiscoveryPair ("Ableton Push 3 Live Port"));
                 break;
 
             default:

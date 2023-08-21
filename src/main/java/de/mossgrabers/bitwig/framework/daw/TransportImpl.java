@@ -47,6 +47,7 @@ public class TransportImpl implements ITransport
 
     private static final AutomationMode [] AUTOMATION_MODES        = new AutomationMode []
     {
+        AutomationMode.READ,
         AutomationMode.LATCH,
         AutomationMode.TOUCH,
         AutomationMode.WRITE
@@ -403,7 +404,9 @@ public class TransportImpl implements ITransport
     @Override
     public AutomationMode getAutomationWriteMode ()
     {
-        return AutomationMode.lookup (this.transport.automationWriteMode ().get ());
+        if (this.isWritingArrangerAutomation () || this.isWritingClipLauncherAutomation ())
+            return AutomationMode.lookup (this.transport.automationWriteMode ().get ());
+        return AutomationMode.READ;
     }
 
 
@@ -485,10 +488,6 @@ public class TransportImpl implements ITransport
     public void setPositionToEnd ()
     {
         this.application.invokeAction (ACTION_JUMP_TO_END);
-
-        // Force moving the end of the arranger into view
-        this.changePosition (false, true);
-        this.changePosition (true, true);
     }
 
 
@@ -499,6 +498,14 @@ public class TransportImpl implements ITransport
         this.transport.playStartPosition ().set (beats);
         if (this.transport.isPlaying ().get ())
             this.transport.jumpToPlayStartPosition ();
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public double getPosition ()
+    {
+        return this.transport.playStartPosition ().get ();
     }
 
 
@@ -547,6 +554,14 @@ public class TransportImpl implements ITransport
 
     /** {@inheritDoc} */
     @Override
+    public double getLoopStart ()
+    {
+        return this.transport.arrangerLoopStart ().get ();
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
     public void selectLoopEnd ()
     {
         final double pos = this.transport.arrangerLoopStart ().get ();
@@ -569,6 +584,14 @@ public class TransportImpl implements ITransport
     {
         final double frac = slow ? TransportConstants.INC_FRACTION_TIME_SLOW : TransportConstants.INC_FRACTION_TIME;
         this.transport.arrangerLoopDuration ().inc (increase ? frac : -frac);
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public double getLoopEnd ()
+    {
+        return getLoopStart () + this.transport.arrangerLoopDuration ().get ();
     }
 
 

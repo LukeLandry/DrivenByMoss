@@ -31,15 +31,29 @@ import java.util.Set;
  */
 public class PushConfiguration extends AbstractConfiguration implements IGraphicsConfiguration
 {
-    /** Settings for different Mute and Solo behavior. */
-    public enum TrackState
+    /** A lock state for the mode buttons. */
+    public enum LockState
     {
-        /** Use Mute, Solo for muting/soloing the current track. */
-        NONE,
-        /** Use all mode buttons for muting. */
+        /** No lock state. */
+        OFF,
+        /** Locked to mute. */
         MUTE,
-        /** Use all mode buttons for soloing. */
-        SOLO
+        /** Locked to solo. */
+        SOLO,
+        /** Locked to clip stop. */
+        CLIP_STOP,
+    }
+
+
+    /** What to show in the display when Session view is active. */
+    public enum SessionDisplayMode
+    {
+        /** Display scenes or clips (depending on session view). */
+        SCENES_CLIPS,
+        /** Display markers. */
+        MARKERS,
+        /** Display mixer. */
+        MIXER
     }
 
 
@@ -100,6 +114,30 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
     /** Display scenes or clips. */
     public static final Integer     DISPLAY_SCENES_CLIPS            = Integer.valueOf (82);
 
+    /** MPE - Per-pad pitchbend. */
+    public static final Integer     PER_PAD_PITCHBEND               = Integer.valueOf (83);
+    /** MPE - Pad in-tune location. */
+    public static final Integer     IN_TUNE_LOCATION                = Integer.valueOf (84);
+    /** MPE - Pad in-tune location width. */
+    public static final Integer     IN_TUNE_WIDTH                   = Integer.valueOf (85);
+    /** MPE - Pad in-tune location height. */
+    public static final Integer     IN_TUNE_SLIDE_HEIGHT            = Integer.valueOf (86);
+
+    /** Audio Interface - Footswitch or CV 1. */
+    public static final Integer     PEDAL_1                         = Integer.valueOf (87);
+    /** Audio Interface - Footswitch or CV 2. */
+    public static final Integer     PEDAL_2                         = Integer.valueOf (88);
+    /** Audio Interface - Pre-amp type 1. */
+    public static final Integer     PREAMP_TYPE_1                   = Integer.valueOf (89);
+    /** Audio Interface - Pre-amp type 2. */
+    public static final Integer     PREAMP_TYPE_2                   = Integer.valueOf (90);
+    /** Audio Interface - Pre-amp gain 1. */
+    public static final Integer     PREAMP_GAIN_1                   = Integer.valueOf (91);
+    /** Audio Interface - Pre-amp gain 2. */
+    public static final Integer     PREAMP_GAIN_2                   = Integer.valueOf (92);
+    /** Audio Interface - Output configuration. */
+    public static final Integer     AUDIO_OUTPUTS                   = Integer.valueOf (93);
+
     /** Use ribbon for pitch bend. */
     public static final int         RIBBON_MODE_PITCH               = 0;
     /** Use ribbon for MIDI CC. */
@@ -121,6 +159,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
     public static final int         NOTE_REPEAT_LENGTH              = 2;
 
     private static final String     CATEGORY_RIBBON                 = "Ribbon";
+    private static final String     CATEGORY_AUDIO                  = "Audio Interface";
     private static final String     CATEGORY_COLORS                 = "Display Colors";
 
     private static final String []  RIBBON_MODE_VALUES              =
@@ -142,9 +181,16 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
     private static final String []  SESSION_VIEW_OPTIONS            =
     {
-        "Session",
+        "Clips",
         "Flipped",
         "Scenes"
+    };
+
+    private static final String []  SESSION_DISPLAY_OPTIONS         =
+    {
+        "Scenes/Clips",
+        "Markers",
+        "Mixer"
     };
 
     private static final Views []   PREFERRED_NOTE_VIEWS            =
@@ -219,71 +265,184 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
         DEBUG_MODES.add (Modes.REPEAT_NOTE);
     }
 
-    private boolean           isSoloLongPressed           = false;
-    private boolean           isMuteLongPressed           = false;
-    private boolean           isMuteSoloLocked            = false;
+    /** Options for the MPE in-tune location options. */
+    public static final String [] IN_TUNE_LOCATION_OPTIONS    =
+    {
+        "Pad",
+        "Finger"
+    };
 
-    private boolean           displayScenesClips;
-    private boolean           isScenesClipView;
+    /** Options for the MPE in-tune width options. */
+    public static final String [] IN_TUNE_WIDTH_OPTIONS       =
+    {
+        "0",
+        "1",
+        "2",
+        "2.5",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "10",
+        "13",
+        "20"
+    };
+
+    /** Options for the MPE slide height options. */
+    public static final String [] SLIDE_HEIGHT_OPTIONS        =
+    {
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16"
+    };
+
+    /** Options for footswitch or CV out setting. */
+    public static final String [] FOOT_CV_OPTIONS             =
+    {
+        "Footswitch",
+        "CV Out"
+    };
+
+    /** Options for pre-amp type setting. */
+    public static final String [] PREAMP_TYPE_OPTIONS         =
+    {
+        "Line",
+        "Instrument",
+        "High"
+    };
+
+    /** Options for pre-amp gain setting. */
+    public static final String [] PREAMP_GAIN_OPTIONS         =
+    {
+        "0dB",
+        "1dB",
+        "2dB",
+        "3dB",
+        "4dB",
+        "5dB",
+        "6dB",
+        "7dB",
+        "8dB",
+        "9dB",
+        "10dB",
+        "11dB",
+        "12dB",
+        "13dB",
+        "14dB",
+        "15dB",
+        "16dB",
+        "17dB",
+        "18dB",
+        "19dB",
+        "20dB"
+    };
+
+    /** Options for output configuration setting. */
+    public static final String [] OUTPUT_CONFIGURATION        =
+    {
+        "Headphones 1/2 - Speaker 1/2",
+        "Headphones 3/4 - Speaker 1/2",
+        "Headphones 1/2 - Speaker 3/4"
+    };
+    /** Options for output configuration setting - short. */
+    public static final String [] OUTPUT_CONFIGURATION_SHORT  =
+    {
+        "H1/2-S1/2",
+        "H3/4-S1/2",
+        "H1/2-S3/4"
+    };
+
+    private LockState             lockState                   = LockState.OFF;
+
+    private SessionDisplayMode    sessionDisplayContent;
+    private boolean               isScenesClipView;
 
     /** What does the ribbon send? **/
-    private int               ribbonMode                  = RIBBON_MODE_PITCH;
-    private int               ribbonModeCCVal             = 1;
-    private int               ribbonModeNoteRepeat        = NOTE_REPEAT_PERIOD;
+    private int                   ribbonMode                  = RIBBON_MODE_PITCH;
+    private int                   ribbonModeCCVal             = 1;
+    private int                   ribbonModeNoteRepeat        = NOTE_REPEAT_PERIOD;
 
-    private boolean           stopAutomationOnKnobRelease = false;
-    private TrackState        trackState                  = TrackState.MUTE;
-    private Modes             debugMode                   = Modes.TRACK;
-    private Modes             layerMode                   = null;
+    private boolean               stopAutomationOnKnobRelease = false;
+    private Modes                 debugMode                   = Modes.TRACK;
+    private Modes                 layerMode                   = null;
 
     // Only Push 1
-    private int               velocityCurve               = 1;
-    private int               padThreshold                = 20;
+    private int                   velocityCurve               = 1;
+    private int                   padThreshold                = 20;
 
     // Only Push 2
-    private int               displayBrightness           = 255;
-    private int               ledBrightness               = 127;
-    private int               padSensitivity              = 5;
-    private int               padGain                     = 5;
-    private int               padDynamics                 = 5;
-    private ColorEx           colorBackground             = DEFAULT_COLOR_BACKGROUND;
-    private ColorEx           colorBorder                 = DEFAULT_COLOR_BORDER;
-    private ColorEx           colorText                   = DEFAULT_COLOR_TEXT;
-    private ColorEx           colorFader                  = DEFAULT_COLOR_FADER;
-    private ColorEx           colorVU                     = DEFAULT_COLOR_VU;
-    private ColorEx           colorEdit                   = DEFAULT_COLOR_EDIT;
-    private ColorEx           colorRecord                 = DEFAULT_COLOR_RECORD;
-    private ColorEx           colorSolo                   = DEFAULT_COLOR_SOLO;
-    private ColorEx           colorMute                   = DEFAULT_COLOR_MUTE;
-    private ColorEx           colorBackgroundDarker       = DEFAULT_COLOR_BACKGROUND_DARKER;
-    private ColorEx           colorBackgroundLighter      = DEFAULT_COLOR_BACKGROUND_LIGHTER;
+    private int                   displayBrightness           = 255;
+    private int                   ledBrightness               = 127;
+    private int                   padSensitivity              = 5;
+    private int                   padGain                     = 5;
+    private int                   padDynamics                 = 5;
+    private ColorEx               colorBackground             = DEFAULT_COLOR_BACKGROUND;
+    private ColorEx               colorBorder                 = DEFAULT_COLOR_BORDER;
+    private ColorEx               colorText                   = DEFAULT_COLOR_TEXT;
+    private ColorEx               colorFader                  = DEFAULT_COLOR_FADER;
+    private ColorEx               colorVU                     = DEFAULT_COLOR_VU;
+    private ColorEx               colorEdit                   = DEFAULT_COLOR_EDIT;
+    private ColorEx               colorRecord                 = DEFAULT_COLOR_RECORD;
+    private ColorEx               colorSolo                   = DEFAULT_COLOR_SOLO;
+    private ColorEx               colorMute                   = DEFAULT_COLOR_MUTE;
+    private ColorEx               colorBackgroundDarker       = DEFAULT_COLOR_BACKGROUND_DARKER;
+    private ColorEx               colorBackgroundLighter      = DEFAULT_COLOR_BACKGROUND_LIGHTER;
 
-    private final PushVersion pushVersion;
+    // Only Push 3
+    private boolean               perPadPitchbend             = true;
+    private int                   inTuneLocation;
+    private int                   inTuneWidth;
+    private int                   slideHeight;
+    private int                   pedal1;
+    private int                   pedal2;
+    private int                   preamp1Type;
+    private int                   preamp2Type;
+    private int                   preamp1Gain;
+    private int                   preamp2Gain;
+    private int                   audioOutputs;
 
-    private IIntegerSetting   displayBrightnessSetting;
-    private IIntegerSetting   ledBrightnessSetting;
-    private IEnumSetting      ribbonModeSetting;
-    private IIntegerSetting   ribbonModeCCSetting;
-    private IEnumSetting      ribbonModeNoteRepeatSetting;
-    private IIntegerSetting   padSensitivitySetting;
-    private IIntegerSetting   padGainSetting;
-    private IIntegerSetting   padDynamicsSetting;
-    private IEnumSetting      velocityCurveSetting;
-    private IEnumSetting      padThresholdSetting;
-    private IEnumSetting      debugModeSetting;
-    private IColorSetting     colorBackgroundSetting;
-    private IColorSetting     colorBackgroundDarkerSetting;
-    private IColorSetting     colorBackgroundLighterSetting;
-    private IColorSetting     colorBorderSetting;
-    private IColorSetting     colorTextSetting;
-    private IColorSetting     colorFaderSetting;
-    private IColorSetting     colorVUSetting;
-    private IColorSetting     colorEditSetting;
-    private IColorSetting     colorRecordSetting;
-    private IColorSetting     colorSoloSetting;
-    private IColorSetting     colorMuteSetting;
-    private IEnumSetting      sessionViewSetting;
-    private IEnumSetting      displayScenesClipsSetting;
+    private final PushVersion     pushVersion;
+
+    private IIntegerSetting       displayBrightnessSetting;
+    private IIntegerSetting       ledBrightnessSetting;
+    private IEnumSetting          ribbonModeSetting;
+    private IIntegerSetting       ribbonModeCCSetting;
+    private IEnumSetting          ribbonModeNoteRepeatSetting;
+    private IIntegerSetting       padSensitivitySetting;
+    private IIntegerSetting       padGainSetting;
+    private IIntegerSetting       padDynamicsSetting;
+    private IEnumSetting          velocityCurveSetting;
+    private IEnumSetting          padThresholdSetting;
+    private IEnumSetting          debugModeSetting;
+    private IColorSetting         colorBackgroundSetting;
+    private IColorSetting         colorBackgroundDarkerSetting;
+    private IColorSetting         colorBackgroundLighterSetting;
+    private IColorSetting         colorBorderSetting;
+    private IColorSetting         colorTextSetting;
+    private IColorSetting         colorFaderSetting;
+    private IColorSetting         colorVUSetting;
+    private IColorSetting         colorEditSetting;
+    private IColorSetting         colorRecordSetting;
+    private IColorSetting         colorSoloSetting;
+    private IColorSetting         colorMuteSetting;
+    private IEnumSetting          sessionViewSetting;
+    private IEnumSetting          sessionDisplayContentSetting;
+    private IEnumSetting          perPadPitchbendSetting;
+    private IEnumSetting          inTuneLocationSetting;
+    private IEnumSetting          inTuneWidthSetting;
+    private IEnumSetting          slideHeightSetting;
+    private IEnumSetting          pedal1Setting;
+    private IEnumSetting          pedal2Setting;
+    private IEnumSetting          preamp1Setting;
+    private IEnumSetting          preamp2Setting;
+    private IEnumSetting          preamp1GainSetting;
+    private IEnumSetting          preamp2GainSetting;
+    private IEnumSetting          audioOutputSetting;
 
 
     /**
@@ -368,7 +527,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
         ///////////////////////////
         // Add Track - Device Favorites
 
-        this.activateDeviceFavorites (globalSettings, 7, 3, 3);
+        this.activateDeviceFavorites (globalSettings, 7, 7, 7, 7);
 
         ///////////////////////////
         // Ribbon
@@ -376,14 +535,21 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
         this.activateRibbonSettings (globalSettings);
 
         ///////////////////////////
-        // Pad Sensitivity
+        // Hardware configuration
 
         if (this.pushVersion == PushVersion.VERSION_1)
             this.activatePush1PadSettings (globalSettings);
         else
             this.activatePush2PadSettings (globalSettings);
 
-        this.activateConvertAftertouchSetting (globalSettings);
+        if (this.pushVersion == PushVersion.VERSION_3)
+        {
+            this.activatePush3MPESettings (globalSettings);
+            this.convertAftertouch = AbstractConfiguration.AFTERTOUCH_CONVERT_OFF;
+            this.activatePush3AudioSettings (globalSettings);
+        }
+        else
+            this.activateConvertAftertouchSetting (globalSettings);
 
         ///////////////////////////
         // Browser
@@ -553,6 +719,17 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
 
     /**
+     * Get the push version.
+     *
+     * @return The version
+     */
+    public PushVersion getPushVersion ()
+    {
+        return this.pushVersion;
+    }
+
+
+    /**
      * Is this a modern Push version (2 or 3)?
      *
      * @return True if Push 2 or 3
@@ -663,68 +840,61 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
 
     /**
-     * Is mute long pressed?
-     *
-     * @return True if mute is long pressed
-     */
-    public boolean isMuteLongPressed ()
-    {
-        return this.isMuteLongPressed;
-    }
-
-
-    /**
-     * Set if mute is long pressed.
-     *
-     * @param isMuteLongPressed True if mute is long pressed
-     */
-    public void setIsMuteLongPressed (final boolean isMuteLongPressed)
-    {
-        this.isMuteLongPressed = isMuteLongPressed;
-    }
-
-
-    /**
-     * Is solo long pressed?
-     *
-     * @return True if solo is long pressed
-     */
-    public boolean isSoloLongPressed ()
-    {
-        return this.isSoloLongPressed;
-    }
-
-
-    /**
-     * Set if solo is long pressed.
+     * Returns true if it is either a Push 1, solo button is long pressed or solo mode is locked.
      *
      * @param isSoloLongPressed True if solo is long pressed
+     * @return As explained above
      */
-    public void setIsSoloLongPressed (final boolean isSoloLongPressed)
+    public boolean isSoloState (final boolean isSoloLongPressed)
     {
-        this.isSoloLongPressed = isSoloLongPressed;
+        return isSoloLongPressed || this.lockState == LockState.SOLO;
     }
 
 
     /**
-     * Is mute and solo locked (all mode buttons are used for solo or mute).
+     * Returns true if it is either a Push 1, mute button is long pressed or mute mode is locked.
      *
-     * @return True if locked
+     * @param isMuteLongPressed True if mute is long pressed
+     * @return As explained above
      */
-    public boolean isMuteSoloLocked ()
+    public boolean isMuteState (final boolean isMuteLongPressed)
     {
-        return this.isMuteSoloLocked;
+        return isMuteLongPressed || this.lockState == LockState.MUTE;
     }
 
 
     /**
-     * Set if mute and solo is locked (all mode buttons are used for solo or mute).
+     * Returns true if it is either a Push 1, clip stop button is long pressed or clip stop mode is
+     * locked.
      *
-     * @param isMuteSoloLocked True if locked
+     * @param isClipStopLongPressed True if clip stop is long pressed
+     * @return As explained above
      */
-    public void setMuteSoloLocked (final boolean isMuteSoloLocked)
+    public boolean isClipStopState (final boolean isClipStopLongPressed)
     {
-        this.isMuteSoloLocked = isMuteSoloLocked;
+        return isClipStopLongPressed || this.lockState == LockState.CLIP_STOP;
+    }
+
+
+    /**
+     * Is mute, solo or clip state locked (all mode buttons are used for solo or mute)?
+     *
+     * @return The state
+     */
+    public LockState getLockState ()
+    {
+        return this.lockState;
+    }
+
+
+    /**
+     * Set if mute, solo or clip stop is locked (all mode buttons are used for solo or mute).
+     *
+     * @param lockState The new lock state
+     */
+    public void setLockState (final LockState lockState)
+    {
+        this.lockState = lockState;
     }
 
 
@@ -791,39 +961,6 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
     public void setPadDynamics (final int padDynamics)
     {
         this.padDynamicsSetting.set (padDynamics);
-    }
-
-
-    /**
-     * Use the 2nd row buttons for mute?
-     *
-     * @return True if used for mute
-     */
-    public boolean isMuteState ()
-    {
-        return this.trackState == TrackState.MUTE;
-    }
-
-
-    /**
-     * Use the 2nd row buttons for solo?
-     *
-     * @return True if used for solo
-     */
-    public boolean isSoloState ()
-    {
-        return this.trackState == TrackState.SOLO;
-    }
-
-
-    /**
-     * Set the track state.
-     *
-     * @param state The new track state
-     */
-    public void setTrackState (final TrackState state)
-    {
-        this.trackState = state;
     }
 
 
@@ -1010,7 +1147,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
      *
      * @return The ID of a mode
      */
-    public Modes getDebugMode ()
+    public Modes getMixerMode ()
     {
         return this.debugMode;
     }
@@ -1021,9 +1158,382 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
      *
      * @param debugMode The ID of a mode
      */
-    public void setDebugMode (final Modes debugMode)
+    public void setMixerMode (final Modes debugMode)
     {
         this.debugModeSetting.set (debugMode.toString ());
+    }
+
+
+    /**
+     * Is per-pad pitchbend enabled?
+     *
+     * @return True if enabled
+     */
+    public boolean isPerPadPitchbend ()
+    {
+        return this.perPadPitchbend;
+    }
+
+
+    /**
+     * Change the MPE per-pad pitchbend enabled setting.
+     *
+     * @param control The control value
+     */
+    public void changePerPadPitchbendEnabled (final int control)
+    {
+        if (this.perPadPitchbendSetting != null)
+            this.perPadPitchbendSetting.set (ON_OFF_OPTIONS[this.valueChanger.isIncrease (control) ? 1 : 0]);
+    }
+
+
+    /**
+     * Set the MPE per-pad pitchbend enabled setting.
+     *
+     * @param enable True to enable
+     */
+    public void setPerPadPitchbendEnabled (final boolean enable)
+    {
+        if (this.perPadPitchbendSetting != null)
+            this.perPadPitchbendSetting.set (ON_OFF_OPTIONS[enable ? 1 : 0]);
+    }
+
+
+    /**
+     * Get the in-tune location setting.
+     *
+     * @return The in-tune setting (1 = Finger, 0 = Pad)
+     */
+    public int getInTuneLocation ()
+    {
+        return this.inTuneLocation;
+    }
+
+
+    /**
+     * Change the MPE in-tune location setting.
+     *
+     * @param control The control value
+     */
+    public void changeInTuneLocation (final int control)
+    {
+        final int index = this.valueChanger.changeValue (control, this.inTuneLocation, -100, IN_TUNE_LOCATION_OPTIONS.length);
+        this.inTuneLocationSetting.set (IN_TUNE_LOCATION_OPTIONS[index]);
+    }
+
+
+    /**
+     * Set the MPE in-tune location setting.
+     *
+     * @param value The value in the range of [0..1]
+     */
+    public void setInTuneLocation (final int value)
+    {
+        this.inTuneLocationSetting.set (IN_TUNE_LOCATION_OPTIONS[value == 0 ? 0 : 1]);
+    }
+
+
+    /**
+     * Get the in-tune width.
+     *
+     * @return The index of the selected in-tune width option
+     */
+    public int getInTuneWidth ()
+    {
+        return this.inTuneWidth;
+    }
+
+
+    /**
+     * Change the MPE in-tune width setting.
+     *
+     * @param control The control value
+     */
+    public void changeInTuneWidth (final int control)
+    {
+        final int index = this.valueChanger.changeValue (control, this.inTuneWidth, -100, IN_TUNE_WIDTH_OPTIONS.length);
+        this.inTuneWidthSetting.set (IN_TUNE_WIDTH_OPTIONS[index]);
+    }
+
+
+    /**
+     * Set the MPE in-tune width setting.
+     *
+     * @param value The value
+     */
+    public void setInTuneWidth (final int value)
+    {
+        this.inTuneWidthSetting.set (IN_TUNE_WIDTH_OPTIONS[Math.min (IN_TUNE_WIDTH_OPTIONS.length - 1, Math.max (0, value))]);
+    }
+
+
+    /**
+     * Get the slide height.
+     *
+     * @return The index of the selected slide height option
+     */
+    public int getInTuneSlideHeight ()
+    {
+        return this.slideHeight;
+    }
+
+
+    /**
+     * Change the MPE slide height setting.
+     *
+     * @param control The control value
+     */
+    public void changeSlideHeight (final int control)
+    {
+        final int index = this.valueChanger.changeValue (control, this.slideHeight, -100, SLIDE_HEIGHT_OPTIONS.length);
+        this.slideHeightSetting.set (SLIDE_HEIGHT_OPTIONS[index]);
+    }
+
+
+    /**
+     * Set the MPE slide height setting.
+     *
+     * @param value The value
+     */
+    public void setSlideHeight (final int value)
+    {
+        this.slideHeightSetting.set (SLIDE_HEIGHT_OPTIONS[Math.min (SLIDE_HEIGHT_OPTIONS.length - 1, Math.max (0, value))]);
+    }
+
+
+    /**
+     * Use CV or footswitch on 1st connector?
+     *
+     * @return 1 if CV is used otherwise 0
+     */
+    public int getPedal1 ()
+    {
+        return this.pedal1;
+    }
+
+
+    /**
+     * Set use CV output or foot switch 1.
+     * 
+     * @param pedal 0 = Footswitch, 1 = CV Out
+     */
+    public void setPedal1 (final int pedal)
+    {
+        this.pedal1Setting.set (FOOT_CV_OPTIONS[pedal]);
+    }
+
+
+    /**
+     * Change use CV output or foot switch 1.
+     *
+     * @param control The control value
+     */
+    public void changePedal1 (final int control)
+    {
+        this.pedal1Setting.set (FOOT_CV_OPTIONS[this.valueChanger.isIncrease (control) ? 1 : 0]);
+    }
+
+
+    /**
+     * Use CV or footswitch on 2nd connector?
+     *
+     * @return 1 if CV is used otherwise 0
+     */
+    public int getPedal2 ()
+    {
+        return this.pedal2;
+    }
+
+
+    /**
+     * Set use CV output or foot switch 1.
+     * 
+     * @param pedal 0 = Footswitch, 1 = CV Out
+     */
+    public void setPedal2 (final int pedal)
+    {
+        this.pedal1Setting.set (FOOT_CV_OPTIONS[pedal]);
+    }
+
+
+    /**
+     * Change use CV output or foot switch 2.
+     *
+     * @param control The control value
+     */
+    public void changePedal2 (final int control)
+    {
+        this.pedal2Setting.set (FOOT_CV_OPTIONS[this.valueChanger.isIncrease (control) ? 1 : 0]);
+    }
+
+
+    /**
+     * Get the pre-amp type 1.
+     *
+     * @return The pre-amp type (0-2)
+     */
+    public int getPreamp1Type ()
+    {
+        return this.preamp1Type;
+    }
+
+
+    /**
+     * Set the type for pre-amp 1.
+     *
+     * @param preampType The pre-amp Type
+     */
+    public void setPreamp1Type (final int preampType)
+    {
+        this.preamp1Setting.set (PREAMP_TYPE_OPTIONS[Math.min (PREAMP_TYPE_OPTIONS.length - 1, Math.max (0, preampType))]);
+    }
+
+
+    /**
+     * Change the type for pre-amp 1.
+     *
+     * @param control The control value
+     */
+    public void changePreamp1Type (final int control)
+    {
+        final int index = this.valueChanger.changeValue (control, this.preamp1Type, -100, PREAMP_TYPE_OPTIONS.length);
+        this.preamp1Setting.set (PREAMP_TYPE_OPTIONS[index]);
+    }
+
+
+    /**
+     * Get the pre-amp type 2.
+     *
+     * @return The pre-amp type (0-2)
+     */
+    public int getPreamp2Type ()
+    {
+        return this.preamp2Type;
+    }
+
+
+    /**
+     * Set the type for pre-amp 2.
+     *
+     * @param preampType The pre-amp Type
+     */
+    public void setPreamp2Type (final int preampType)
+    {
+        this.preamp2Setting.set (PREAMP_TYPE_OPTIONS[Math.min (PREAMP_TYPE_OPTIONS.length - 1, Math.max (0, preampType))]);
+    }
+
+
+    /**
+     * Change the type for pre-amp 2.
+     *
+     * @param control The control value
+     */
+    public void changePreamp2Type (final int control)
+    {
+        final int index = this.valueChanger.changeValue (control, this.preamp2Type, -100, PREAMP_TYPE_OPTIONS.length);
+        this.preamp2Setting.set (PREAMP_TYPE_OPTIONS[index]);
+    }
+
+
+    /**
+     * Get the gain for pre-amp 1.
+     *
+     * @return The gain
+     */
+    public int getPreamp1Gain ()
+    {
+        return this.preamp1Gain;
+    }
+
+
+    /**
+     * Set the gain for pre-amp 1.
+     *
+     * @param preampGain The gain
+     */
+    public void setPreamp1Gain (final int preampGain)
+    {
+        this.preamp1GainSetting.set (PREAMP_GAIN_OPTIONS[Math.min (PREAMP_GAIN_OPTIONS.length - 1, Math.max (0, preampGain))]);
+    }
+
+
+    /**
+     * Change the gain for pre-amp 1.
+     *
+     * @param control The control value
+     */
+    public void changePreamp1Gain (final int control)
+    {
+        final int index = this.valueChanger.changeValue (control, this.preamp1Gain, -100, PREAMP_GAIN_OPTIONS.length);
+        this.preamp1GainSetting.set (PREAMP_GAIN_OPTIONS[index]);
+    }
+
+
+    /**
+     * Get the gain for pre-amp 2.
+     *
+     * @return The gain
+     */
+    public int getPreamp2Gain ()
+    {
+        return this.preamp2Gain;
+    }
+
+
+    /**
+     * Set the gain for pre-amp 2.
+     * 
+     * @param preampGain The gain
+     */
+    public void setPreamp2Gain (final int preampGain)
+    {
+        this.preamp2GainSetting.set (PREAMP_GAIN_OPTIONS[Math.min (PREAMP_GAIN_OPTIONS.length - 1, Math.max (0, preampGain))]);
+    }
+
+
+    /**
+     * Change the gain for pre-amp 2.
+     *
+     * @param control The control value
+     */
+    public void changePreamp2Gain (final int control)
+    {
+        final int index = this.valueChanger.changeValue (control, this.preamp2Gain, -100, PREAMP_GAIN_OPTIONS.length);
+        this.preamp2GainSetting.set (PREAMP_GAIN_OPTIONS[index]);
+    }
+
+
+    /**
+     * Get the index of the audio output configuration.
+     * 
+     * @return The configuration index
+     */
+    public int getAudioOutputs ()
+    {
+        return this.audioOutputs;
+    }
+
+
+    /**
+     * Set the output configuration.
+     * 
+     * @param audioOutputs The index of the audio output configuration to set
+     */
+    public void setAudioOutputs (final int audioOutputs)
+    {
+        this.audioOutputSetting.set (OUTPUT_CONFIGURATION[audioOutputs]);
+    }
+
+
+    /**
+     * Change the output configuration.
+     *
+     * @param control The control value
+     */
+    public void changeAudioOutputs (final int control)
+    {
+        final int index = this.valueChanger.changeValue (control, this.audioOutputs, -100, OUTPUT_CONFIGURATION.length);
+        this.audioOutputSetting.set (OUTPUT_CONFIGURATION[index]);
     }
 
 
@@ -1034,7 +1544,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
      */
     private void activateSessionView (final ISettingsUI settingsUI)
     {
-        this.sessionViewSetting = settingsUI.getEnumSetting ("Session view", CATEGORY_SESSION, SESSION_VIEW_OPTIONS, SESSION_VIEW_OPTIONS[0]);
+        this.sessionViewSetting = settingsUI.getEnumSetting ("Pads", CATEGORY_SESSION, SESSION_VIEW_OPTIONS, SESSION_VIEW_OPTIONS[0]);
         this.sessionViewSetting.addValueObserver (value -> {
             this.flipSession = SESSION_VIEW_OPTIONS[1].equals (value);
             this.isScenesClipView = SESSION_VIEW_OPTIONS[2].equals (value);
@@ -1042,9 +1552,9 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
             this.notifyObservers (PushConfiguration.SESSION_VIEW);
         });
 
-        this.displayScenesClipsSetting = settingsUI.getEnumSetting ("Display scenes/clips", CATEGORY_SESSION, ON_OFF_OPTIONS, ON_OFF_OPTIONS[0]);
-        this.displayScenesClipsSetting.addValueObserver (value -> {
-            this.displayScenesClips = "On".equals (value);
+        this.sessionDisplayContentSetting = settingsUI.getEnumSetting ("Display", CATEGORY_SESSION, SESSION_DISPLAY_OPTIONS, SESSION_DISPLAY_OPTIONS[2]);
+        this.sessionDisplayContentSetting.addValueObserver (value -> {
+            this.sessionDisplayContent = SessionDisplayMode.values ()[lookupIndex (SESSION_DISPLAY_OPTIONS, value)];
             this.notifyObservers (PushConfiguration.DISPLAY_SCENES_CLIPS);
         });
     }
@@ -1068,13 +1578,38 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
 
     /**
-     * Returns true if the session view should also switch to the scene/clip mode.
+     * What should be shown in the display when the session view is active?
      *
-     * @return True if the session view should also switch to the scene/clip mode.
+     * @return The mode to activate
      */
-    public boolean shouldDisplayScenesOrClips ()
+    public SessionDisplayMode getSessionDisplayContent ()
     {
-        return this.displayScenesClips;
+        return this.sessionDisplayContent;
+    }
+
+
+    /**
+     * Toggles the mode display for scenes/clips in session view.
+     *
+     * @param mode The mode to set
+     */
+    public void setSessionDisplayContent (final SessionDisplayMode mode)
+    {
+        final int index;
+        switch (mode)
+        {
+            case MARKERS:
+                index = 1;
+                break;
+            case SCENES_CLIPS:
+                index = 0;
+                break;
+            case MIXER:
+            default:
+                index = 2;
+                break;
+        }
+        this.sessionDisplayContentSetting.set (SESSION_DISPLAY_OPTIONS[index]);
     }
 
 
@@ -1086,15 +1621,6 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
     public boolean isScenesClipViewSelected ()
     {
         return this.isScenesClipView;
-    }
-
-
-    /**
-     * Toggles the mode display for scenes/clips in session view.
-     */
-    public void toggleScenesClipMode ()
-    {
-        this.displayScenesClipsSetting.set (this.displayScenesClips ? ON_OFF_OPTIONS[0] : ON_OFF_OPTIONS[1]);
     }
 
 
@@ -1207,6 +1733,92 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
         this.padDynamicsSetting.addValueObserver (value -> {
             this.padDynamics = value.intValue ();
             this.notifyObservers (PAD_DYNAMICS);
+        });
+    }
+
+
+    /**
+     * Activate the Push 3 MPE pad settings.
+     *
+     * @param settingsUI The settings
+     */
+    private void activatePush3MPESettings (final ISettingsUI settingsUI)
+    {
+        this.activateMPESetting (settingsUI, CATEGORY_PADS, true);
+
+        this.perPadPitchbendSetting = settingsUI.getEnumSetting ("Per-Pad Pitchbend", CATEGORY_PADS, ON_OFF_OPTIONS, ON_OFF_OPTIONS[1]);
+        this.perPadPitchbendSetting.addValueObserver (value -> {
+            this.perPadPitchbend = ON_OFF_OPTIONS[1].equals (value);
+            this.notifyObservers (PER_PAD_PITCHBEND);
+        });
+
+        this.inTuneLocationSetting = settingsUI.getEnumSetting ("In Tune Location", CATEGORY_PADS, IN_TUNE_LOCATION_OPTIONS, IN_TUNE_LOCATION_OPTIONS[1]);
+        this.inTuneLocationSetting.addValueObserver (value -> {
+            this.inTuneLocation = lookupIndex (IN_TUNE_LOCATION_OPTIONS, value);
+            this.notifyObservers (IN_TUNE_LOCATION);
+        });
+
+        this.inTuneWidthSetting = settingsUI.getEnumSetting ("In Tune Width (mm)", CATEGORY_PADS, IN_TUNE_WIDTH_OPTIONS, IN_TUNE_WIDTH_OPTIONS[9]);
+        this.inTuneWidthSetting.addValueObserver (value -> {
+            this.inTuneWidth = lookupIndex (IN_TUNE_WIDTH_OPTIONS, value);
+            this.notifyObservers (IN_TUNE_WIDTH);
+        });
+
+        this.slideHeightSetting = settingsUI.getEnumSetting ("Slide Height (mm)", CATEGORY_PADS, SLIDE_HEIGHT_OPTIONS, SLIDE_HEIGHT_OPTIONS[3]);
+        this.slideHeightSetting.addValueObserver (value -> {
+            this.slideHeight = lookupIndex (SLIDE_HEIGHT_OPTIONS, value);
+            this.notifyObservers (IN_TUNE_SLIDE_HEIGHT);
+        });
+    }
+
+
+    /**
+     * Activate the Push 3 audio interface settings.
+     *
+     * @param settingsUI The settings
+     */
+    private void activatePush3AudioSettings (final ISettingsUI settingsUI)
+    {
+        this.pedal1Setting = settingsUI.getEnumSetting ("Pedal & CV 1", CATEGORY_AUDIO, FOOT_CV_OPTIONS, FOOT_CV_OPTIONS[0]);
+        this.pedal1Setting.addValueObserver (value -> {
+            this.pedal1 = lookupIndex (FOOT_CV_OPTIONS, value);
+            this.notifyObservers (PEDAL_1);
+        });
+
+        this.pedal2Setting = settingsUI.getEnumSetting ("Pedal & CV 2", CATEGORY_AUDIO, FOOT_CV_OPTIONS, FOOT_CV_OPTIONS[0]);
+        this.pedal2Setting.addValueObserver (value -> {
+            this.pedal2 = lookupIndex (FOOT_CV_OPTIONS, value);
+            this.notifyObservers (PEDAL_2);
+        });
+
+        this.preamp1Setting = settingsUI.getEnumSetting ("Preamp 1", CATEGORY_AUDIO, PREAMP_TYPE_OPTIONS, PREAMP_TYPE_OPTIONS[0]);
+        this.preamp1Setting.addValueObserver (value -> {
+            this.preamp1Type = lookupIndex (PREAMP_TYPE_OPTIONS, value);
+            this.notifyObservers (PREAMP_TYPE_1);
+        });
+
+        this.preamp2Setting = settingsUI.getEnumSetting ("Preamp 2", CATEGORY_AUDIO, PREAMP_TYPE_OPTIONS, PREAMP_TYPE_OPTIONS[0]);
+        this.preamp2Setting.addValueObserver (value -> {
+            this.preamp2Type = lookupIndex (PREAMP_TYPE_OPTIONS, value);
+            this.notifyObservers (PREAMP_TYPE_2);
+        });
+
+        this.preamp1GainSetting = settingsUI.getEnumSetting ("Gain 1", CATEGORY_AUDIO, PREAMP_GAIN_OPTIONS, PREAMP_GAIN_OPTIONS[0]);
+        this.preamp1GainSetting.addValueObserver (value -> {
+            this.preamp1Gain = lookupIndex (PREAMP_GAIN_OPTIONS, value);
+            this.notifyObservers (PREAMP_GAIN_1);
+        });
+
+        this.preamp2GainSetting = settingsUI.getEnumSetting ("Gain 2", CATEGORY_AUDIO, PREAMP_GAIN_OPTIONS, PREAMP_GAIN_OPTIONS[0]);
+        this.preamp2GainSetting.addValueObserver (value -> {
+            this.preamp2Gain = lookupIndex (PREAMP_GAIN_OPTIONS, value);
+            this.notifyObservers (PREAMP_GAIN_2);
+        });
+
+        this.audioOutputSetting = settingsUI.getEnumSetting ("Outputs", CATEGORY_AUDIO, OUTPUT_CONFIGURATION, OUTPUT_CONFIGURATION[0]);
+        this.audioOutputSetting.addValueObserver (value -> {
+            this.audioOutputs = lookupIndex (OUTPUT_CONFIGURATION, value);
+            this.notifyObservers (AUDIO_OUTPUTS);
         });
     }
 
