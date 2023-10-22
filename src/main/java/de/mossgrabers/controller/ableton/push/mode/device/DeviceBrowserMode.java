@@ -439,15 +439,11 @@ public class DeviceBrowserMode extends BaseMode<IItem> implements IPush3Encoder
     {
         final IBrowser browser = this.model.getBrowser ();
         int column = -1;
-        final boolean [] browserDisplayFilter = this.surface.getConfiguration ().getBrowserDisplayFilter ();
         for (int i = 0; i < browser.getFilterColumnCount (); i++)
         {
-            if (browserDisplayFilter[i])
-            {
-                column++;
-                if (column == index)
-                    return Optional.of (browser.getFilterColumn (i));
-            }
+            column++;
+            if (column == index)
+                return Optional.of (browser.getFilterColumn (i));
         }
         return Optional.empty ();
     }
@@ -558,10 +554,7 @@ public class DeviceBrowserMode extends BaseMode<IItem> implements IPush3Encoder
     @Override
     public void encoderLeft (final ButtonEvent event)
     {
-        if (event != ButtonEvent.DOWN)
-            return;
-
-        if (this.filterColumn == 0)
+        if ((event != ButtonEvent.DOWN) || (this.filterColumn == 0))
             return;
 
         final IBrowser browser = this.model.getBrowser ();

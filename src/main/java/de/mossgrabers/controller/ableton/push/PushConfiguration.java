@@ -552,11 +552,6 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
             this.activateConvertAftertouchSetting (globalSettings);
 
         ///////////////////////////
-        // Browser
-
-        this.activateBrowserSettings (globalSettings);
-
-        ///////////////////////////
         // Push 2 Hardware
 
         this.activatePush2HardwareSettings (globalSettings);
@@ -1314,7 +1309,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
     /**
      * Set use CV output or foot switch 1.
-     * 
+     *
      * @param pedal 0 = Footswitch, 1 = CV Out
      */
     public void setPedal1 (final int pedal)
@@ -1347,7 +1342,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
     /**
      * Set use CV output or foot switch 1.
-     * 
+     *
      * @param pedal 0 = Footswitch, 1 = CV Out
      */
     public void setPedal2 (final int pedal)
@@ -1482,7 +1477,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
     /**
      * Set the gain for pre-amp 2.
-     * 
+     *
      * @param preampGain The gain
      */
     public void setPreamp2Gain (final int preampGain)
@@ -1505,7 +1500,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
     /**
      * Get the index of the audio output configuration.
-     * 
+     *
      * @return The configuration index
      */
     public int getAudioOutputs ()
@@ -1516,7 +1511,7 @@ public class PushConfiguration extends AbstractConfiguration implements IGraphic
 
     /**
      * Set the output configuration.
-     * 
+     *
      * @param audioOutputs The index of the audio output configuration to set
      */
     public void setAudioOutputs (final int audioOutputs)

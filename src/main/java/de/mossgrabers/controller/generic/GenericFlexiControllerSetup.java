@@ -27,7 +27,6 @@ import de.mossgrabers.controller.generic.flexihandler.TrackHandler;
 import de.mossgrabers.controller.generic.flexihandler.TrackRemotesHandler;
 import de.mossgrabers.controller.generic.flexihandler.TransportHandler;
 import de.mossgrabers.controller.generic.flexihandler.utils.ProgramBank;
-import de.mossgrabers.framework.ClipLauncherNavigator;
 import de.mossgrabers.framework.configuration.AbstractConfiguration;
 import de.mossgrabers.framework.configuration.IEnumSetting;
 import de.mossgrabers.framework.configuration.ISettingsUI;
@@ -36,6 +35,7 @@ import de.mossgrabers.framework.controller.ISetupFactory;
 import de.mossgrabers.framework.controller.color.ColorManager;
 import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
 import de.mossgrabers.framework.controller.valuechanger.OffsetBinaryRelativeValueChanger;
+import de.mossgrabers.framework.controller.valuechanger.SignedBit2RelativeValueChanger;
 import de.mossgrabers.framework.controller.valuechanger.SignedBitRelativeValueChanger;
 import de.mossgrabers.framework.controller.valuechanger.TwosComplementValueChanger;
 import de.mossgrabers.framework.daw.IHost;
@@ -84,10 +84,10 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
 
     private final IValueChanger     absoluteLowResValueChanger       = new TwosComplementValueChanger (128, 1);
     private final IValueChanger     signedBitRelativeValueChanger    = new SignedBitRelativeValueChanger (16384, 100);
+    private final IValueChanger     signedBit2RelativeValueChanger   = new SignedBit2RelativeValueChanger (16384, 100);
     private final IValueChanger     offsetBinaryRelativeValueChanger = new OffsetBinaryRelativeValueChanger (16384, 100);
 
     private final List<ProgramBank> banks                            = new ArrayList<> ();
-    private ClipLauncherNavigator   clipLauncherNavigator;
 
 
     /**
@@ -189,11 +189,10 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
         ms.setNumMarkers (8);
         ms.enableDevice (DeviceID.EQ);
         ms.enableDevice (DeviceID.FIRST_INSTRUMENT);
+        ms.setWantsClipLauncherNavigator (true);
         this.model = this.factory.createModel (this.configuration, this.colorManager, this.valueChanger, this.scales, ms);
 
         this.model.getTrackBank ().setIndication (true);
-
-        this.clipLauncherNavigator = new ClipLauncherNavigator (this.model);
     }
 
 
@@ -230,11 +229,11 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
     {
         final GenericFlexiControlSurface surface = this.getSurface ();
         final ModeManager modeManager = surface.getModeManager ();
-        modeManager.register (Modes.TRACK, new TrackMode<> (surface, this.model, true, this.clipLauncherNavigator));
-        modeManager.register (Modes.VOLUME, new TrackVolumeMode<> (surface, this.model, true, this.clipLauncherNavigator));
-        modeManager.register (Modes.PAN, new TrackPanMode<> (surface, this.model, true, this.clipLauncherNavigator));
+        modeManager.register (Modes.TRACK, new TrackMode<> (surface, this.model, true));
+        modeManager.register (Modes.VOLUME, new TrackVolumeMode<> (surface, this.model, true));
+        modeManager.register (Modes.PAN, new TrackPanMode<> (surface, this.model, true));
         for (int i = 0; i < 8; i++)
-            modeManager.register (Modes.get (Modes.SEND1, i), new TrackSendMode<> (i, surface, this.model, true, this.clipLauncherNavigator));
+            modeManager.register (Modes.get (Modes.SEND1, i), new TrackSendMode<> (i, surface, this.model, true));
         modeManager.register (Modes.DEVICE_PARAMS, new ParameterMode<> ("Device", surface, this.model, true, null, surface::isShiftPressed));
         modeManager.register (Modes.BROWSER, new BrowserMode<> (surface, this.model));
 
@@ -326,26 +325,26 @@ public class GenericFlexiControllerSetup extends AbstractControllerSetup<Generic
      */
     private void registerHandlers (final GenericFlexiControlSurface surface)
     {
-        surface.registerHandler (new GlobalHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new TransportHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new LayoutHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new TrackHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger, this.clipLauncherNavigator));
-        surface.registerHandler (new FxTrackHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new MasterHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new DeviceHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new InstrumentDeviceHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new LayerHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new EqHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new BrowserHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new SceneHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new ClipHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new MarkerHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new ModesHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger, this.host));
-        surface.registerHandler (new MidiCCHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new NoteInputHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new ProjectRemotesHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new TrackRemotesHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
-        surface.registerHandler (new ActionHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new GlobalHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new TransportHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new LayoutHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new TrackHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new FxTrackHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new MasterHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new DeviceHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new InstrumentDeviceHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new LayerHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new EqHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new BrowserHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new SceneHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new ClipHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new MarkerHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new ModesHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger, this.host));
+        surface.registerHandler (new MidiCCHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new NoteInputHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new ProjectRemotesHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new TrackRemotesHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
+        surface.registerHandler (new ActionHandler (this.model, surface, this.configuration, this.absoluteLowResValueChanger, this.signedBitRelativeValueChanger, this.signedBit2RelativeValueChanger, this.offsetBinaryRelativeValueChanger));
     }
 
 

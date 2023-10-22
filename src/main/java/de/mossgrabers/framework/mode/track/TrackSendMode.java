@@ -4,7 +4,6 @@
 
 package de.mossgrabers.framework.mode.track;
 
-import de.mossgrabers.framework.ClipLauncherNavigator;
 import de.mossgrabers.framework.configuration.Configuration;
 import de.mossgrabers.framework.controller.ButtonID;
 import de.mossgrabers.framework.controller.ContinuousID;
@@ -51,24 +50,6 @@ public class TrackSendMode<S extends IControlSurface<C>, C extends Configuration
     /**
      * Constructor.
      *
-     * @param sendIndex The send index, if negative the sends of the selected track are edited
-     * @param surface The control surface
-     * @param model The model
-     * @param isAbsolute If true the value change is happening with a setter otherwise relative
-     *            change method is used
-     * @param clipLauncherNavigator Access to helper functions to navigate the clip launcher
-     */
-    public TrackSendMode (final int sendIndex, final S surface, final IModel model, final boolean isAbsolute, final ClipLauncherNavigator clipLauncherNavigator)
-    {
-        this (sendIndex, surface, model, isAbsolute, (List<ContinuousID>) null);
-
-        this.clipLauncherNavigator = clipLauncherNavigator;
-    }
-
-
-    /**
-     * Constructor.
-     *
      * @param sendIndex The send index
      * @param surface The control surface
      * @param model The model
@@ -96,7 +77,7 @@ public class TrackSendMode<S extends IControlSurface<C>, C extends Configuration
      */
     public TrackSendMode (final int sendIndex, final S surface, final IModel model, final boolean isAbsolute, final List<ContinuousID> controls, final BooleanSupplier isAlternativeFunction)
     {
-        super ("Send", surface, model, isAbsolute, controls, isAlternativeFunction);
+        super ("Send " + (sendIndex + 1), surface, model, isAbsolute, controls, isAlternativeFunction);
 
         this.sendIndex = sendIndex;
 
