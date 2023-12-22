@@ -13,7 +13,7 @@ import java.util.UUID;
 
 
 /**
- * Definition class for the Electra.One controller extension.
+ * Definition class for the Electra One controller extension.
  *
  * @author Jürgen Moßgraber
  */
@@ -27,7 +27,7 @@ public class ElectraOneControllerDefinition extends DefaultControllerDefinition
      */
     public ElectraOneControllerDefinition ()
     {
-        super (UUID.fromString ("24342204-B891-4F62-BC43-8ABA1DE1D690"), "Electra.One", "Electra", 2, 2);
+        super (UUID.fromString ("24342204-B891-4F62-BC43-8ABA1DE1D690"), "Electra One", "Electra", 2, 2);
     }
 
 
@@ -54,12 +54,12 @@ public class ElectraOneControllerDefinition extends DefaultControllerDefinition
                     final String [] portInNames = new String []
                     {
                         "Electra Controller #" + i,
-                        "MIDIIN" + (3 * i) + " (Electra Controller)"
+                        "MIDIIN" + 3 * i + " (Electra Controller)"
                     };
                     final String [] portOutNames = new String []
                     {
                         "Electra Controller #" + i,
-                        "MIDIOUT" + (3 * i) + " (Electra Controller)"
+                        "MIDIOUT" + 3 * i + " (Electra Controller)"
                     };
                     pairs.add (this.addDeviceDiscoveryPair (portInNames, portOutNames));
                 }
