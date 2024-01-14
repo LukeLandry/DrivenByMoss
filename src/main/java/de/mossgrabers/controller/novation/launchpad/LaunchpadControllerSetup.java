@@ -690,12 +690,13 @@ public class LaunchpadControllerSetup extends AbstractControllerSetup<LaunchpadC
     @Override
     protected void handleTrackChange (final boolean isSelected)
     {
-        if (!isSelected)
-            return;
-
-        // Do not restore preferred play view view if certain views are active
-        if (!this.getSurface ().getViewManager ().isActive (Views.MIX, Views.USER, Views.TRACK_PAN, Views.TRACK_VOLUME, Views.TRACK_SENDS, Views.DEVICE))
-            super.handleTrackChange (isSelected);
+        // DO NOT CHANGE THE FUCKING MODE
+//        if (!isSelected)
+//            return;
+//
+//        // Do not restore preferred play view view if certain views are active
+//        if (!this.getSurface ().getViewManager ().isActive (Views.SESSION, Views.MIX, Views.USER, Views.TRACK_PAN, Views.TRACK_VOLUME, Views.TRACK_SENDS, Views.DEVICE))
+//            super.handleTrackChange (isSelected);
     }
 
 

@@ -582,12 +582,13 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
     public void startup ()
     {
         final SLMkIIIControlSurface surface = this.getSurface ();
-        surface.getViewManager ().setActive (Views.SESSION);
+        // ltlandry - set default to sequencer
+        surface.getViewManager ().setActive (Views.DRUM);
 
         final ModeManager modeManager = surface.getModeManager ();
         // ltlandry customizations - set default to PAN
         // modeManager.setActive (Modes.TRACK);
-        modeManager.setActive (Modes.PAN);
+        modeManager.setActive (Modes.DEVICE_PARAMS);
 
         this.host.scheduleTask ( () -> surface.getMidiOutput ().sendSysex (DeviceInquiry.createQuery ()), 1000);
     }
