@@ -99,7 +99,8 @@ public class SLMkIIIControlSurface extends AbstractControlSurface<SLMkIIIConfigu
     public static final int MKIII_BUTTON_STATE_OFF  = 0;
     public static final int MKIII_BUTTON_STATE_ON   = 1;
 
-    private boolean         isMuteSolo              = true;
+    // ltlandry default to monitor/record instead of mute/solo
+    private boolean         isMuteSolo              = false;
 
 
     /**

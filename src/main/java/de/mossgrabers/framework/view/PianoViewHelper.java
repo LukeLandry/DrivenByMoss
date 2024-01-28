@@ -67,7 +67,9 @@ public class PianoViewHelper
         final ITrack track = model.getCursorTrack ();
         final int playKeyColor = colorManager.getColorIndex (isRecording ? AbstractPlayView.COLOR_RECORD : AbstractPlayView.COLOR_PLAY);
         final int whiteKeyColor = colorManager.getColorIndex (Scales.SCALE_COLOR_NOTE);
-        final int blackKeyColor = colorManager.getColorIndex (AbstractView.replaceOctaveColorWithTrackColor (track, Scales.SCALE_COLOR_OCTAVE));
+        final int blackKeyColor = colorManager.getColorIndex (Scales.SCALE_COLOR_OCTAVE);
+        // LTL - use consistent colors instead of changing color based on selected track
+        // final int blackKeyColor = colorManager.getColorIndex (AbstractView.replaceOctaveColorWithTrackColor (track, Scales.SCALE_COLOR_OCTAVE));
         final int offKeyColor = colorManager.getColorIndex (Scales.SCALE_COLOR_OFF);
 
         for (int row = 0; row < rows; row++)
