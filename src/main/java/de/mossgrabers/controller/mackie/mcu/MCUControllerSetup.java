@@ -1,5 +1,5 @@
 // Written by Jürgen Moßgraber - mossgrabers.de
-// (c) 2017-2023
+// (c) 2017-2024
 // Licensed under LGPLv3 - http://www.gnu.org/licenses/lgpl-3.0.txt
 
 package de.mossgrabers.controller.mackie.mcu;
@@ -827,11 +827,8 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
                 final IChannel track = channelBank.getItem (channel);
 
                 final int vu = track.getVu ();
-                if (vu != this.vuValues[channel])
-                {
-                    this.vuValues[channel] = vu;
-                    this.sendVUValue (output, i, vu, false);
-                }
+                this.vuValues[channel] = vu;
+                this.sendVUValue (output, i, vu, false);
             }
 
             // Stereo VU of master channel
@@ -840,18 +837,12 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
                 final IMasterTrack masterTrack = this.model.getMasterTrack ();
 
                 int vu = masterTrack.getVuLeft ();
-                if (vu != this.masterVuValues[0])
-                {
-                    this.masterVuValues[0] = vu;
-                    this.sendVUValue (output, 0, vu, true);
-                }
+                this.masterVuValues[0] = vu;
+                this.sendVUValue (output, 0, vu, true);
 
                 vu = masterTrack.getVuRight ();
-                if (vu != this.masterVuValues[1])
-                {
-                    this.masterVuValues[1] = vu;
-                    this.sendVUValue (output, 1, vu, true);
-                }
+                this.masterVuValues[1] = vu;
+                this.sendVUValue (output, 1, vu, true);
             }
         }
     }
@@ -861,6 +852,9 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
     {
         final int scaledValue = (int) Math.round (this.valueChanger.toNormalizedValue (vu) * 13);
         output.sendChannelAftertouch (isMaster ? 1 : 0, 0x10 * track + scaledValue, 0);
+
+        final boolean doesClip = vu > 16240;
+        output.sendChannelAftertouch (isMaster ? 1 : 0, 0x10 * track + (doesClip ? 0x0E : 0x0F), 0);
     }
 
 
