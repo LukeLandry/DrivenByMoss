@@ -125,23 +125,6 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
             this.kompleteInstance = kompleteInstanceNew;
             surface.sendKontrolTrackSysEx (KontrolProtocolControlSurface.KONTROL_TRACK_INSTANCE, 0, 0, kompleteInstanceNew);
         }
-
-        final ITrackBank bank = this.model.getCurrentTrackBank ();
-
-        final boolean hasSolo = this.model.getProject ().hasSolo ();
-        for (int i = 0; i < 8; i++)
-        {
-            final ITrack track = bank.getItem (i);
-            surface.sendKontrolTrackSysEx (KontrolProtocolControlSurface.KONTROL_TRACK_MUTE, track.isMute () ? 1 : 0, i);
-            surface.sendKontrolTrackSysEx (KontrolProtocolControlSurface.KONTROL_TRACK_SOLO, track.isSolo () ? 1 : 0, i);
-            surface.sendKontrolTrackSysEx (KontrolProtocolControlSurface.KONTROL_TRACK_MUTED_BY_SOLO, !track.isSolo () && hasSolo ? 1 : 0, i);
-        }
-
-        final ITrackBank tb = this.model.getCurrentTrackBank ();
-        final Optional<ITrack> selectedTrack = tb.getSelectedItem ();
-        surface.sendCommand (KontrolProtocolControlSurface.KONTROL_SELECTED_TRACK_AVAILABLE, selectedTrack.isPresent () ? TrackType.toTrackType (selectedTrack.get ().getType ()) : 0);
-        surface.sendCommand (KontrolProtocolControlSurface.KONTROL_SELECTED_TRACK_MUTED_BY_SOLO, selectedTrack.isPresent () && !selectedTrack.get ().isSolo () && hasSolo ? 1 : 0);
-
         super.flush ();
     }
 
@@ -162,8 +145,9 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
         final IMidiAccess midiAccess = this.factory.createMidiAccess ();
         final IMidiOutput output = midiAccess.createOutput ();
         final IMidiInput pianoInput = midiAccess.createInput (1, "Keyboard", "8?????" /* Note off */,
-                "9?????" /* Note on */, "B?????" /* Sustain pedal + Modulation + Strip */,
-                "D?????" /* Channel After-touch */, "E?????" /* Pitch-bend */);
+                "9?????" /* Note on */, "A?????" /* Poly-Aftertouch */,
+                "B?????" /* Sustain-pedal + Modulation + Strip */, "D?????" /* Channel-Aftertouch */,
+                "E?????" /* Pitch-bend */);
         final KontrolProtocolControlSurface surface = new KontrolProtocolControlSurface (this.host, this.colorManager, this.configuration, output, midiAccess.createInput (null), this.version);
         this.surfaces.add (surface);
 
@@ -243,6 +227,7 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
         final TriggerCommand stopCommand = new ModeSwitcherCommand (new StopCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.STOP, this.configuration);
         final TriggerCommand autoCommand = new ModeSwitcherCommand (new WriteArrangerAutomationCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.AUTO, this.configuration);
         final TriggerCommand tempoCommand = new ModeSwitcherCommand (new TapTempoCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.TEMPO, this.configuration);
+        final TriggerCommand metronomeCommand = new ModeSwitcherCommand (new MetronomeCommand<> (this.model, surface, false), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.METRONOME, this.configuration);
 
         this.addButton (ButtonID.PLAY, "Play", new PlayCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.KONTROL_PLAY, t::isPlaying);
         this.addButton (ButtonID.NEW, "Restart", restartCommand, 15, KontrolProtocolControlSurface.KONTROL_RESTART);
@@ -253,7 +238,7 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
         this.addButton (ButtonID.STOP, "Stop", stopCommand, 15, KontrolProtocolControlSurface.KONTROL_STOP, () -> !t.isPlaying ());
 
         this.addButton (ButtonID.LOOP, "Loop", loopCommand, 15, KontrolProtocolControlSurface.KONTROL_LOOP, t::isLoop);
-        this.addButton (ButtonID.METRONOME, "Metronome", new MetronomeCommand<> (this.model, surface, false), 15, KontrolProtocolControlSurface.KONTROL_METRO, t::isMetronomeOn);
+        this.addButton (ButtonID.METRONOME, "Metronome", metronomeCommand, 15, KontrolProtocolControlSurface.KONTROL_METRO, t::isMetronomeOn);
         this.addButton (ButtonID.TAP_TEMPO, "Tempo", tempoCommand, 15, KontrolProtocolControlSurface.KONTROL_TAP_TEMPO);
 
         // Note: Since there is no pressed-state with this device, in the simulator-GUI the
@@ -542,7 +527,7 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
                 break;
 
             case DEVICE_PARAMS:
-                if (modeManager.getActive () instanceof ParamsMode paramMode)
+                if (modeManager.getActive () instanceof final ParamsMode paramMode)
                     paramMode.switchProvider (isLeft);
                 break;
 
