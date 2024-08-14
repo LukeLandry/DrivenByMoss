@@ -28,6 +28,7 @@ import de.mossgrabers.framework.featuregroup.ViewManager;
 import de.mossgrabers.framework.mode.INoteEditor;
 import de.mossgrabers.framework.mode.INoteEditorMode;
 import de.mossgrabers.framework.mode.Modes;
+import de.mossgrabers.framework.scale.Scales;
 import de.mossgrabers.framework.utils.ButtonEvent;
 import de.mossgrabers.framework.view.Views;
 
@@ -512,7 +513,13 @@ public abstract class AbstractSequencerView<S extends IControlSurface<C>, C exte
         {
             if (highlight)
                 return COLOR_STEP_HILITE_NO_CONTENT;
-            return this.getPadColor (pad, this.useDawColors ? this.model.getCursorTrack () : null);
+
+            final String padColor = this.getPadColor (pad, this.useDawColors ? this.model.getCursorTrack () : null);
+
+            if (this.configuration.isTurnOffScalePads () && Scales.SCALE_COLOR_NOTE.equals (padColor))
+                return Scales.SCALE_COLOR_OFF;
+
+            return padColor;
         }
 
         return this.getStepColor (stepInfo, highlight, Optional.empty (), channel, step, note, editNotes);
@@ -559,5 +566,47 @@ public abstract class AbstractSequencerView<S extends IControlSurface<C>, C exte
                     return COLOR_STEP_HILITE_NO_CONTENT;
                 return step / 4 % 2 == 1 ? COLOR_NO_CONTENT_4 : COLOR_NO_CONTENT;
         }
+    }
+
+
+    /**
+     * If there is a note editor available this method handles adding and removing notes from it.
+     *
+     * @param clip The clip which contains the notes
+     * @param notePosition The note position
+     * @param velocity The velocity of the pad press
+     * @return True if handled
+     */
+    protected boolean handleNoteEditor (final INoteClip clip, final NotePosition notePosition, final int velocity)
+    {
+        final ModeManager modeManager = this.surface.getModeManager ();
+        if (velocity > 0)
+        {
+            final IMode activeMode = modeManager.getActive ();
+            if (activeMode instanceof final INoteEditorMode noteMode)
+            {
+                // Store existing note for editing
+                final StepState state = clip.getStep (notePosition).getState ();
+                if (state == StepState.START)
+                {
+                    this.editNote (clip, notePosition, true);
+                    if (noteMode.getNoteEditor ().getNotes ().isEmpty ())
+                    {
+                        this.surface.getDisplay ().notify ("Edit Notes: Off");
+                        this.isNoteEdited = false;
+                    }
+                }
+                return true;
+            }
+        }
+        else
+        {
+            if (this.isNoteEdited)
+                this.isNoteEdited = false;
+            if (modeManager.isActive (Modes.NOTE))
+                return true;
+        }
+
+        return false;
     }
 }
