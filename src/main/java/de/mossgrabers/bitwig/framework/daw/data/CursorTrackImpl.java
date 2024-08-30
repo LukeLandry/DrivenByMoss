@@ -4,6 +4,7 @@
 
 package de.mossgrabers.bitwig.framework.daw.data;
 
+import com.bitwig.extension.controller.api.*;
 import de.mossgrabers.bitwig.framework.daw.ApplicationImpl;
 import de.mossgrabers.bitwig.framework.daw.HostImpl;
 import de.mossgrabers.bitwig.framework.daw.ModelImpl;
@@ -13,13 +14,6 @@ import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.data.ICursorTrack;
 import de.mossgrabers.framework.daw.data.bank.IParameterBank;
 import de.mossgrabers.framework.daw.data.bank.ITrackBank;
-
-import com.bitwig.extension.controller.api.CursorRemoteControlsPage;
-import com.bitwig.extension.controller.api.CursorTrack;
-import com.bitwig.extension.controller.api.SceneBank;
-import com.bitwig.extension.controller.api.SettableBooleanValue;
-import com.bitwig.extension.controller.api.Track;
-import com.bitwig.extension.controller.api.TrackBank;
 
 
 /**
@@ -188,5 +182,10 @@ public class CursorTrackImpl extends TrackImpl implements ICursorTrack
     public IParameterBank getParameterBank ()
     {
         return this.parameterBank;
+    }
+
+    @Override
+    public InsertionPoint endOfDeviceChainInsertionPoint() {
+        return this.cursorTrack.endOfDeviceChainInsertionPoint();
     }
 }

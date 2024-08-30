@@ -27,7 +27,7 @@ public class SLMkIIIControllerDefinition extends DefaultControllerDefinition
      */
     public SLMkIIIControllerDefinition ()
     {
-        super (EXTENSION_ID, "SL MkIII", "Novation", 2, 1);
+        super (EXTENSION_ID, "SW SL MkIII", "Novation", 2, 1);
     }
 
 

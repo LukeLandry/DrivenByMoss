@@ -4,6 +4,7 @@
 
 package de.mossgrabers.framework.daw.data;
 
+import com.bitwig.extension.controller.api.InsertionPoint;
 import de.mossgrabers.framework.daw.data.bank.IParameterBank;
 
 
@@ -20,4 +21,7 @@ public interface ICursorTrack extends ITrack, ICursor
      * @return The bank
      */
     IParameterBank getParameterBank ();
+
+    InsertionPoint endOfDeviceChainInsertionPoint();
+
 }

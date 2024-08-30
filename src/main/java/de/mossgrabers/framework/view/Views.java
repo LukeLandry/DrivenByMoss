@@ -102,7 +102,10 @@ public enum Views
     /** To block functionality. */
     DUMMY5,
     /** To block functionality. */
-    DUMMY6;
+    DUMMY6,
+
+
+    SHORTCUTS;
 
 
     /** The name of the play view. */

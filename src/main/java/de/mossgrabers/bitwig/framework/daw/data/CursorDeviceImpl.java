@@ -4,6 +4,7 @@
 
 package de.mossgrabers.bitwig.framework.daw.data;
 
+import com.bitwig.extension.controller.api.InsertionPoint;
 import de.mossgrabers.bitwig.framework.daw.data.bank.DeviceBankImpl;
 import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
 import de.mossgrabers.framework.daw.IHost;
@@ -219,5 +220,16 @@ public class CursorDeviceImpl extends SpecificDeviceImpl implements ICursorDevic
     public PinnableCursorDevice getCursorDevice ()
     {
         return this.cursorDevice;
+    }
+
+
+    @Override
+    public InsertionPoint afterDeviceInsertionPoint() {
+        return this.cursorDevice.afterDeviceInsertionPoint();
+    }
+
+    @Override
+    public InsertionPoint beforeDeviceInsertionPoint() {
+        return this.cursorDevice.beforeDeviceInsertionPoint();
     }
 }

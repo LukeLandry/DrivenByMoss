@@ -4,6 +4,7 @@
 
 package de.mossgrabers.framework.daw.data;
 
+import com.bitwig.extension.controller.api.InsertionPoint;
 import de.mossgrabers.framework.daw.data.bank.IDeviceBank;
 
 
@@ -48,4 +49,7 @@ public interface ICursorDevice extends ISpecificDevice, ICursor
      * @param slotChainName One of the slot chain names retrieved with {@link #getSlotChains()}.
      */
     void selectSlotChain (String slotChainName);
+
+    InsertionPoint afterDeviceInsertionPoint();
+    InsertionPoint beforeDeviceInsertionPoint();
 }

@@ -28,6 +28,7 @@ import de.mossgrabers.controller.novation.slmkiii.mode.track.SLMkIIITrackMode;
 import de.mossgrabers.controller.novation.slmkiii.mode.track.SLMkIIIVolumeMode;
 import de.mossgrabers.controller.novation.slmkiii.view.DrumView;
 import de.mossgrabers.controller.novation.slmkiii.view.SessionView;
+import de.mossgrabers.controller.novation.slmkiii.view.ShortcutsView;
 import de.mossgrabers.framework.command.continuous.KnobRowModeCommand;
 import de.mossgrabers.framework.command.core.NopCommand;
 import de.mossgrabers.framework.command.trigger.Direction;
@@ -93,6 +94,8 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
     };
     // @formatter:on
 
+
+    private Views savedView = null;
 
     /**
      * Constructor.
@@ -197,6 +200,7 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
         viewManager.register (Views.SESSION, new SessionView (surface, this.model));
         viewManager.register (Views.DRUM, new DrumView (surface, this.model));
         viewManager.register (Views.COLOR, new ColorView<> (surface, this.model));
+        viewManager.register (Views.SHORTCUTS, new ShortcutsView (surface, this.model));
     }
 
 
@@ -275,7 +279,8 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
         this.addButton (ButtonID.ARROW_DOWN, "Down", new TrackModeCommand (this.model, surface), 15, SLMkIIIControlSurface.MKIII_DISPLAY_DOWN, () -> getTrackModeColor (modeManager));
 
         this.addButton (ButtonID.SHIFT, "Shift", new ShiftCommand<> (this.model, surface), 15, SLMkIIIControlSurface.MKIII_SHIFT);
-        this.addButton (ButtonID.USER, "Options", new ModeSelectCommand<> (this.model, surface, Modes.FUNCTIONS, true), 15, SLMkIIIControlSurface.MKIII_OPTIONS, () -> modeManager.isActive (Modes.FUNCTIONS) ? SLMkIIIColorManager.SLMKIII_DARK_BROWN : SLMkIIIColorManager.SLMKIII_DARK_GREY);
+        this.addButton (ButtonID.USER, "Options", new ModeSelectCommand<> (this.model, surface, Modes.FUNCTIONS, true),
+            15, SLMkIIIControlSurface.MKIII_OPTIONS, () -> modeManager.isActive (Modes.FUNCTIONS) ? SLMkIIIColorManager.SLMKIII_DARK_BROWN : SLMkIIIColorManager.SLMKIII_DARK_GREY);
 
         this.addButton (ButtonID.OCTAVE_UP, "Up", (event, value) -> {
             if (event == ButtonEvent.UP)
@@ -310,8 +315,9 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
                 else
                     drumView.onLeft (ButtonEvent.DOWN);
             }
-            else if (viewManager.isActive (Views.COLOR))
-                ((ColorView<?, ?>) viewManager.get (Views.COLOR)).setPage (0);
+            else if (viewManager.isActive (Views.COLOR)) {
+                ((ColorView<?, ?>) viewManager.get(Views.COLOR)).setPage(0);
+            }
         }, 15, SLMkIIIControlSurface.MKIII_SCENE_UP, this::getSceneUpColor);
 
         this.addButton (ButtonID.SCENE8, "Scene Down", (event, value) -> {
@@ -334,9 +340,17 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
         this.addButton (ButtonID.SESSION, "Grid", (event, value) -> {
             if (event != ButtonEvent.DOWN)
                 return;
-            viewManager.setActive (viewManager.isActive (Views.SESSION) ? Views.DRUM : Views.SESSION);
-            this.getSurface ().getDisplay ().notify (viewManager.isActive (Views.SESSION) ? "Session" : "Sequencer");
-        }, 15, SLMkIIIControlSurface.MKIII_GRID, () -> viewManager.isActive (Views.SESSION) ? SLMkIIIColorManager.SLMKIII_GREEN : SLMkIIIColorManager.SLMKIII_BLUE);
+            if (viewManager.isActive(Views.SESSION)) {
+                viewManager.setActive(Views.DRUM);
+                this.getSurface ().getDisplay ().notify ("Sequencer");
+            } else if (viewManager.isActive(Views.DRUM)) {
+                viewManager.setActive(Views.SHORTCUTS);
+                this.getSurface ().getDisplay ().notify ("Shortcuts");
+            } else {
+                viewManager.setActive(Views.SESSION);
+                this.getSurface ().getDisplay ().notify ("Session");
+            }
+        }, 15, SLMkIIIControlSurface.MKIII_GRID, () -> viewManager.isActive (Views.SESSION) ? SLMkIIIColorManager.SLMKIII_GREEN : (viewManager.isActive (Views.DRUM) ? SLMkIIIColorManager.SLMKIII_BLUE : SLMkIIIColorManager.SLMKIII_WHITE));
 
         this.addButton (ButtonID.DUPLICATE, "Duplicate", NopCommand.INSTANCE, 15, SLMkIIIControlSurface.MKIII_DUPLICATE, () -> surface.isPressed (ButtonID.DUPLICATE) ? SLMkIIIColorManager.SLMKIII_AMBER : SLMkIIIColorManager.SLMKIII_AMBER_HALF);
 
@@ -586,7 +600,7 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
     {
         final SLMkIIIControlSurface surface = this.getSurface ();
         // ltlandry - set default to sequencer
-        surface.getViewManager ().setActive (Views.DRUM);
+        surface.getViewManager ().setActive (Views.SHORTCUTS);
 
         final ModeManager modeManager = surface.getModeManager ();
         // ltlandry customizations - set default to PAN
