@@ -213,12 +213,12 @@ public class SLMkIIIControllerSetup extends AbstractControllerSetup<SLMkIIIContr
         this.createScaleObservers (this.configuration);
 
         this.configuration.registerDeactivatedItemsHandler (this.model);
-        this.configuration.addSettingObserver (AbstractConfiguration.SCALES_IN_KEY, () -> {
-
-            final int colorIndex = this.configuration.isScaleInKey () ? SLMkIIIColorManager.SLMKIII_BLACK : SLMkIIIColorManager.SLMKIII_DARK_GREY;
-            this.colorManager.updateColorIndex (Scales.SCALE_COLOR_OUT_OF_SCALE, colorIndex);
-
-        });
+//        this.configuration.addSettingObserver (AbstractConfiguration.SCALES_IN_KEY, () -> {
+//
+//            final int colorIndex = this.configuration.isScaleInKey () ? SLMkIIIColorManager.SLMKIII_BLACK : SLMkIIIColorManager.SLMKIII_DARK_GREY;
+//            this.colorManager.updateColorIndex (Scales.SCALE_COLOR_OUT_OF_SCALE, colorIndex);
+//
+//        });
 
         this.configuration.addSettingObserver (SLMkIIIConfiguration.ENABLE_LIGHTGUIDE, () -> ((SLMkIIILightGuide) this.getSurface ().getLightGuide ()).setActive (this.configuration.isLightEnabled ()));
 
