@@ -42,6 +42,7 @@ import de.mossgrabers.framework.utils.ConsoleLogger;
 import de.mossgrabers.framework.utils.IntConsumerSupplier;
 import de.mossgrabers.framework.utils.TestCallback;
 import de.mossgrabers.framework.utils.TestFramework;
+import de.mossgrabers.framework.view.AbstractDrum64View;
 import de.mossgrabers.framework.view.Views;
 
 
@@ -85,6 +86,14 @@ public abstract class AbstractControllerSetup<S extends IControlSurface<C>, C ex
         this.documentSettings = documentSettings;
 
         ConsoleLogger.init (host);
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasSurface ()
+    {
+        return !this.surfaces.isEmpty ();
     }
 
 
@@ -157,7 +166,8 @@ public abstract class AbstractControllerSetup<S extends IControlSurface<C>, C ex
         for (final S surface: this.surfaces)
             surface.shutdown ();
         this.host.releaseUsbDevices ();
-        this.model.cleanup ();
+        if (this.model != null)
+            this.model.cleanup ();
         this.host.println ("Exited.");
     }
 
@@ -1411,11 +1421,12 @@ public abstract class AbstractControllerSetup<S extends IControlSurface<C>, C ex
     protected void resetDrumOctave ()
     {
         final ViewManager viewManager = this.getSurface ().getViewManager ();
-        this.scales.resetDrumOctave ();
-        if (viewManager.isActive (Views.DRUM))
-            viewManager.get (Views.DRUM).updateNoteMapping ();
-        else if (viewManager.isActive (Views.PLAY))
-            viewManager.getActive ().updateNoteMapping ();
+        final IView activeView = viewManager.getActive ();
+
+        if (viewManager.isActive (Views.DRUM, Views.PLAY))
+            activeView.updateNoteMapping ();
+        else if (activeView instanceof final AbstractDrum64View drum64View)
+            drum64View.resetOctave ();
     }
 
 

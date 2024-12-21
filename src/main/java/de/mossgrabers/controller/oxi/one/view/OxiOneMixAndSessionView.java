@@ -19,11 +19,12 @@ import de.mossgrabers.framework.view.AbstractSessionView;
 
 
 /**
- * A view for mixing with track select, mute, solo, record arm, stop clip, volume and panorama.
+ * A view for mixing with track select, mute, solo, record arm, stop clip, volume and panorama as
+ * well as 4 rows of clips.
  *
  * @author Jürgen Moßgraber
  */
-public class OxiOneMixView extends AbstractSessionView<OxiOneControlSurface, OxiOneConfiguration>
+public class OxiOneMixAndSessionView extends AbstractSessionView<OxiOneControlSurface, OxiOneConfiguration>
 {
     /**
      * Constructor.
@@ -31,7 +32,7 @@ public class OxiOneMixView extends AbstractSessionView<OxiOneControlSurface, Oxi
      * @param surface The surface
      * @param model The model
      */
-    public OxiOneMixView (final OxiOneControlSurface surface, final IModel model)
+    public OxiOneMixAndSessionView (final OxiOneControlSurface surface, final IModel model)
     {
         super ("Track Mixer", surface, model, 4, 16, true);
 
@@ -41,6 +42,7 @@ public class OxiOneMixView extends AbstractSessionView<OxiOneControlSurface, Oxi
         final int white = OxiOneColorManager.OXI_ONE_COLOR_WHITE;
         final int green = OxiOneColorManager.OXI_ONE_COLOR_GREEN;
         final int amber = OxiOneColorManager.OXI_ONE_COLOR_ORANGE;
+        final int gray = OxiOneColorManager.OXI_ONE_COLOR_GRAY;
         final LightInfo isRecording = new LightInfo (redHi, -1, false);
         final LightInfo isRecordingQueued = new LightInfo (redHi, black, true);
         final LightInfo isPlaying = new LightInfo (green, -1, false);
@@ -48,7 +50,8 @@ public class OxiOneMixView extends AbstractSessionView<OxiOneControlSurface, Oxi
         final LightInfo hasContent = new LightInfo (amber, white, false);
         final LightInfo noContent = new LightInfo (black, -1, false);
         final LightInfo recArmed = new LightInfo (redLo, -1, false);
-        this.setColors (isRecording, isRecordingQueued, isPlaying, isPlayingQueued, hasContent, noContent, recArmed);
+        final LightInfo isMuted = new LightInfo (gray, -1, false);
+        this.setColors (isRecording, isRecordingQueued, isPlaying, isPlayingQueued, hasContent, noContent, recArmed, isMuted);
     }
 
 
@@ -129,6 +132,8 @@ public class OxiOneMixView extends AbstractSessionView<OxiOneControlSurface, Oxi
                             configuration.toggleDuplicateModeActive ();
                             track.duplicate ();
                         }
+                        else if (this.surface.isShiftPressed ())
+                            track.stop (false);
                         else
                             track.selectOrExpandGroup ();
                         break;

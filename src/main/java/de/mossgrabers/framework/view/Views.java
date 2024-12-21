@@ -136,6 +136,8 @@ public enum Views
     public static final String              NAME_BROWSER        = "Browser";
     /** The name of the mix view. */
     public static final String              NAME_MIX            = "Mix";
+    /** The name of the session view. */
+    public static final String              NAME_SESSION        = "Session";
     /** The name of the clip length view. */
     public static final String              NAME_CLIP_LENGTH    = "Clip Length";
 
@@ -175,14 +177,17 @@ public enum Views
         VIEW_NAMES.put (NAME_DRUM64, DRUM64);
 
         VIEW_NAMES.put (NAME_MIX, MIX);
+        VIEW_NAMES.put (NAME_SESSION, SESSION);
         VIEW_NAMES.put (NAME_CLIP_LENGTH, CLIP_LENGTH);
 
         NOTE_VIEWS.add (DRUM);
         NOTE_VIEWS.add (DRUM4);
         NOTE_VIEWS.add (DRUM8);
+        NOTE_VIEWS.add (DRUM_XOX);
         VIEW_NAMES.put (NAME_DRUM, DRUM);
         VIEW_NAMES.put (NAME_DRUM4, DRUM4);
         VIEW_NAMES.put (NAME_DRUM8, DRUM8);
+        VIEW_NAMES.put (NAME_DRUM_XOX, DRUM_XOX);
 
         SEQUENCER_VIEWS.add (DRUM);
         SEQUENCER_VIEWS.add (DRUM4);
@@ -266,6 +271,29 @@ public enum Views
                 return e.getKey ();
         }
         return "Missing view name";
+    }
+
+
+    /**
+     * Set a view name.
+     *
+     * @param view The view ID
+     * @param name The view name
+     */
+    public static void setViewName (final Views view, final String name)
+    {
+        String key = null;
+        for (final Map.Entry<String, Views> e: VIEW_NAMES.entrySet ())
+        {
+            if (e.getValue () == view)
+            {
+                key = e.getKey ();
+                break;
+            }
+        }
+        if (key != null)
+            VIEW_NAMES.remove (key);
+        VIEW_NAMES.put (name, view);
     }
 
 
