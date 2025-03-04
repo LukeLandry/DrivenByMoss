@@ -1,5 +1,5 @@
 // Written by Jürgen Moßgraber - mossgrabers.de
-// (c) 2017-2024
+// (c) 2017-2025
 // Licensed under LGPLv3 - http://www.gnu.org/licenses/lgpl-3.0.txt
 
 package de.mossgrabers.framework.daw.data.empty;
@@ -127,6 +127,14 @@ public class EmptySlot extends EmptyItem implements ISlot
     /** {@inheritDoc} */
     @Override
     public void duplicate ()
+    {
+        // Intentionally empty
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public void insertFile (final String path)
     {
         // Intentionally empty
     }

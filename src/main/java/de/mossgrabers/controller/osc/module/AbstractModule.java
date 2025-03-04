@@ -1,5 +1,5 @@
 // Written by Jürgen Moßgraber - mossgrabers.de
-// (c) 2017-2024
+// (c) 2017-2025
 // Licensed under LGPLv3 - http://www.gnu.org/licenses/lgpl-3.0.txt
 
 package de.mossgrabers.controller.osc.module;
@@ -35,6 +35,7 @@ public abstract class AbstractModule implements IModule
     protected static final String     TAG_SELECTED      = "selected";
     protected static final String     TAG_SELECT        = "select";
     protected static final String     TAG_DUPLICATE     = "duplicate";
+    protected static final String     TAG_INSERT_FILE   = "insertFile";
     protected static final String     TAG_REMOVE        = "remove";
     protected static final String     TAG_VOLUME        = "volume";
     protected static final String     TAG_PAGE          = "page";

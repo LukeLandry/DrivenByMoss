@@ -1,5 +1,5 @@
 // Written by Jürgen Moßgraber - mossgrabers.de
-// (c) 2017-2024
+// (c) 2017-2025
 // Licensed under LGPLv3 - http://www.gnu.org/licenses/lgpl-3.0.txt
 
 package de.mossgrabers.framework.configuration;
@@ -542,7 +542,8 @@ public abstract class AbstractConfiguration implements Configuration
     @Override
     public void setScaleInKey (final boolean inScale)
     {
-        this.scaleInKeySetting.set (inScale ? SCALE_IN_KEY : SCALE_CHROMATIC);
+        if (this.scaleInKeySetting != null)
+            this.scaleInKeySetting.set (inScale ? SCALE_IN_KEY : SCALE_CHROMATIC);
     }
 
 
@@ -1681,7 +1682,7 @@ public abstract class AbstractConfiguration implements Configuration
      */
     protected void activateShowPlayedChordsSetting (final ISettingsUI settingsUI)
     {
-        this.showPlayedChordsSetting = settingsUI.getEnumSetting ("Notify played chords", CATEGORY_PLAY_AND_SEQUENCE, ON_OFF_OPTIONS, ON_OFF_OPTIONS[1]);
+        this.showPlayedChordsSetting = settingsUI.getEnumSetting ("Notify played chords", CATEGORY_PLAY_AND_SEQUENCE, ON_OFF_OPTIONS, ON_OFF_OPTIONS[0]);
         this.showPlayedChordsSetting.addValueObserver (value -> this.showPlayedChords = ON_OFF_OPTIONS[1].equals (value));
     }
 

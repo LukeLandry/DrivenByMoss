@@ -1,5 +1,5 @@
 // Written by Jürgen Moßgraber - mossgrabers.de
-// (c) 2017-2024
+// (c) 2017-2025
 // Licensed under LGPLv3 - http://www.gnu.org/licenses/lgpl-3.0.txt
 
 package de.mossgrabers.controller.novation.sl;
@@ -36,7 +36,7 @@ import de.mossgrabers.framework.controller.ISetupFactory;
 import de.mossgrabers.framework.controller.hardware.BindType;
 import de.mossgrabers.framework.controller.hardware.IHwRelativeKnob;
 import de.mossgrabers.framework.controller.valuechanger.RelativeEncoding;
-import de.mossgrabers.framework.controller.valuechanger.TwosComplementValueChanger;
+import de.mossgrabers.framework.controller.valuechanger.SignedBit2RelativeValueChanger;
 import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.ModelSetup;
 import de.mossgrabers.framework.daw.data.bank.IParameterBank;
@@ -89,7 +89,7 @@ public class SLControllerSetup extends AbstractControllerSetup<SLControlSurface,
         super (factory, host, globalSettings, documentSettings);
         this.isMkII = isMkII;
         this.colorManager = new SLColorManager ();
-        this.valueChanger = new TwosComplementValueChanger (128, 1);
+        this.valueChanger = new SignedBit2RelativeValueChanger (127, 1);
         this.configuration = new SLConfiguration (host, this.valueChanger, factory.getArpeggiatorModes (), isMkII);
     }
 
