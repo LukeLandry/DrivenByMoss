@@ -4,6 +4,9 @@
 
 package de.mossgrabers.bitwig.framework.daw.data.bank;
 
+import com.bitwig.extension.controller.api.CursorRemoteControlsPage;
+import com.bitwig.extension.controller.api.SettableIntegerValue;
+
 import de.mossgrabers.bitwig.framework.daw.data.ParameterImpl;
 import de.mossgrabers.bitwig.framework.daw.data.Util;
 import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
@@ -12,10 +15,8 @@ import de.mossgrabers.framework.daw.data.IItem;
 import de.mossgrabers.framework.daw.data.bank.AbstractItemBank;
 import de.mossgrabers.framework.daw.data.bank.IParameterBank;
 import de.mossgrabers.framework.daw.data.bank.IParameterPageBank;
+import de.mossgrabers.framework.observer.IParameterValueObserver;
 import de.mossgrabers.framework.parameter.IParameter;
-
-import com.bitwig.extension.controller.api.CursorRemoteControlsPage;
-import com.bitwig.extension.controller.api.SettableIntegerValue;
 
 
 /**
@@ -178,5 +179,24 @@ public class ParameterBankImpl extends AbstractItemBank<IParameter> implements I
     public IParameterPageBank getPageBank ()
     {
         return this.pageBank;
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public void addValueObserver (final IParameterValueObserver observer)
+    {
+        for (int i = 0; i < this.getPageSize (); i++)
+        {
+            final IParameter parameter = this.getItem (i);
+            final int index = i;
+            ((ParameterImpl) parameter).getParameter ().value ().addValueObserver (value -> {
+
+                final int page = this.getPageBank ().getSelectedItemIndex ();
+                if (page >= 0)
+                    observer.update (page, index);
+
+            });
+        }
     }
 }

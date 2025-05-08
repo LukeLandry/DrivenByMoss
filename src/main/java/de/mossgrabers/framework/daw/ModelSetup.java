@@ -35,6 +35,7 @@ public class ModelSetup
     private int                  numParamPages              = 8;
     private int                  numParams                  = 8;
     private int                  numDrumPadLayers           = 16;
+    private int                  numListParams              = 0;
 
     private int                  numFilterColumnEntries     = 16;
     private int                  numResults                 = 16;
@@ -42,6 +43,7 @@ public class ModelSetup
     private int                  numMarkers                 = 0;
 
     private final List<DeviceID> deviceIDs                  = new ArrayList<> ();
+    private boolean              wantsFocusedParameter      = false;
 
 
     /**
@@ -229,6 +231,29 @@ public class ModelSetup
     public void setNumParams (final int numParams)
     {
         this.numParams = numParams;
+    }
+
+
+    /**
+     * Get the number of parameters of a device to provide in a list.
+     *
+     * @return The number of parameter of a device to monitor and make a available in a list
+     */
+    public int getNumListParams ()
+    {
+        return this.numListParams;
+    }
+
+
+    /**
+     * Set the number of parameters of a device to provide in a list.
+     *
+     * @param numListParams The number of parameter of a device to monitor and make a available in a
+     *            list
+     */
+    public void setNumListParams (final int numListParams)
+    {
+        this.numListParams = numListParams;
     }
 
 
@@ -461,5 +486,27 @@ public class ModelSetup
     public void setWantsClipLauncherNavigator (final boolean wantsClipLauncherNavigator)
     {
         this.wantsClipLauncherNavigator = wantsClipLauncherNavigator;
+    }
+
+
+    /**
+     * Should a focused parameter be created?
+     *
+     * @return True if one should be created
+     */
+    public boolean wantsFocusedParameter ()
+    {
+        return this.wantsFocusedParameter;
+    }
+
+
+    /**
+     * Set if a focused parameter should be created.
+     *
+     * @param wantsFocusedParameter True if one should be created
+     */
+    public void setWantsFocusedParameter (final boolean wantsFocusedParameter)
+    {
+        this.wantsFocusedParameter = wantsFocusedParameter;
     }
 }

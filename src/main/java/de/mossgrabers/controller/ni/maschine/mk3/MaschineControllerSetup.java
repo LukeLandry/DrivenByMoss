@@ -147,6 +147,7 @@ public class MaschineControllerSetup extends AbstractControllerSetup<MaschineCon
 
     private final Maschine                maschine;
     private ShiftView                     shiftView;
+    private MainKnobRowModeCommand        mainKnobCommand;
 
 
     /**
@@ -195,6 +196,7 @@ public class MaschineControllerSetup extends AbstractControllerSetup<MaschineCon
     {
         final ModelSetup ms = new ModelSetup ();
         ms.setHasFullFlatTrackList (true);
+        ms.setWantsFocusedParameter (true);
         ms.setNumTracks (this.maschine.hasGroupButtons () ? 8 : 16);
         ms.setNumDevicesInBank (16);
         ms.setNumScenes (16);
@@ -384,9 +386,8 @@ public class MaschineControllerSetup extends AbstractControllerSetup<MaschineCon
             }
             else
             {
-                final boolean isSlow = !surface.isKnobSensitivitySlow ();
-                surface.setKnobSensitivityIsSlow (isSlow);
-                surface.getDisplay ().notify ("Value change speed: " + (isSlow ? "Slow" : "Fast"));
+                this.mainKnobCommand.toggleControlLastParamActive ();
+                surface.getDisplay ().notify ("Last Param: " + (this.mainKnobCommand.isControlLastParamActive () ? " ON" : "OFF"));
             }
 
         }, MaschineControlSurface.ENCODER_PUSH);
@@ -682,7 +683,8 @@ public class MaschineControllerSetup extends AbstractControllerSetup<MaschineCon
         final ModeManager modeManager = surface.getModeManager ();
         final ViewManager viewManager = surface.getViewManager ();
 
-        final IHwRelativeKnob knob = this.addRelativeKnob (ContinuousID.MASTER_KNOB, "Encoder", new MainKnobRowModeCommand (this.model, surface), MaschineControlSurface.ENCODER);
+        this.mainKnobCommand = new MainKnobRowModeCommand (this.model, surface);
+        final IHwRelativeKnob knob = this.addRelativeKnob (ContinuousID.MASTER_KNOB, "Encoder", this.mainKnobCommand, MaschineControlSurface.ENCODER);
         knob.bindTouch ( (event, velocity) -> {
             final IMode mode = modeManager.getActive ();
             if (mode != null && event != ButtonEvent.LONG)
@@ -735,9 +737,9 @@ public class MaschineControllerSetup extends AbstractControllerSetup<MaschineCon
             final MaschineMonitorEncoderCommand<MaschineControlSurface, MaschineConfiguration> encoderCommandCue = new MaschineMonitorEncoderCommand<> (this.encoderManager, EncoderMode.CUE_VOLUME, this.model, surface);
             this.addButton (ButtonID.ROW4_4, "CUE", encoderCommandCue, MaschineControlSurface.MONITOR_CUE, encoderCommandCue::isLit);
 
-            final MaschineMonitorEncoderCommand<MaschineControlSurface, MaschineConfiguration> encoderCommandMasterPan = new MaschineMonitorEncoderCommand<> (this.encoderManager, EncoderMode.MASTER_PANORAMA, this.model, surface);
+            final MaschineMonitorEncoderCommand<MaschineControlSurface, MaschineConfiguration> encoderCommandMasterPan = new MaschineMonitorEncoderCommand<> (this.encoderManager, EncoderMode.MASTER_PANNING, this.model, surface);
             this.addButton (ButtonID.ROW4_5, "IN1", encoderCommandMasterPan, MaschineControlSurface.MONITOR_IN1, encoderCommandMasterPan::isLit);
-            final MaschineMonitorEncoderCommand<MaschineControlSurface, MaschineConfiguration> encoderCommandSelectedTrackPan = new MaschineMonitorEncoderCommand<> (this.encoderManager, EncoderMode.SELECTED_TRACK_PANORAMA, this.model, surface);
+            final MaschineMonitorEncoderCommand<MaschineControlSurface, MaschineConfiguration> encoderCommandSelectedTrackPan = new MaschineMonitorEncoderCommand<> (this.encoderManager, EncoderMode.SELECTED_TRACK_PANNING, this.model, surface);
             this.addButton (ButtonID.ROW4_6, "IN2", encoderCommandSelectedTrackPan, MaschineControlSurface.MONITOR_IN2, encoderCommandSelectedTrackPan::isLit);
             final MaschineMonitorEncoderCommand<MaschineControlSurface, MaschineConfiguration> encoderCommandCueMix = new MaschineMonitorEncoderCommand<> (this.encoderManager, EncoderMode.CUE_MIX, this.model, surface);
             this.addButton (ButtonID.ROW4_8, "IN4", encoderCommandCueMix, MaschineControlSurface.MONITOR_IN4, encoderCommandCueMix::isLit);
@@ -1161,10 +1163,10 @@ public class MaschineControllerSetup extends AbstractControllerSetup<MaschineCon
                     case MASTER_VOLUME:
                         value = this.valueChanger.toMidiValue (this.model.getMasterTrack ().getVolume ());
                         break;
-                    case MASTER_PANORAMA:
+                    case MASTER_PANNING:
                         value = this.valueChanger.toMidiValue (this.model.getMasterTrack ().getPan ());
                         break;
-                    case SELECTED_TRACK_VOLUME, SELECTED_TRACK_PANORAMA:
+                    case SELECTED_TRACK_VOLUME, SELECTED_TRACK_PANNING:
                         final ITrack track;
                         final Optional<ITrack> trackOptional = trackBank.getSelectedItem ();
                         if (trackOptional.isPresent ())

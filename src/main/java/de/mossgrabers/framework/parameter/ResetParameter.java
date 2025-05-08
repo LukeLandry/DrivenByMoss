@@ -5,20 +5,16 @@
 package de.mossgrabers.framework.parameter;
 
 import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
-import de.mossgrabers.framework.observer.IValueObserver;
 import de.mossgrabers.framework.utils.StringUtils;
 
 
 /**
- * Encapsulates a parameter and calls its' reset method in changeValue and setValue.
+ * Encapsulates a parameter and calls its' reset method in all methods which modify the value.
  *
  * @author Jürgen Moßgraber
  */
-public class ResetParameter implements IParameter
+public class ResetParameter extends AbstractParameterWrapper
 {
-    private final IParameter parameter;
-
-
     /**
      * Constructor.
      *
@@ -26,7 +22,7 @@ public class ResetParameter implements IParameter
      */
     public ResetParameter (final IParameter parameter)
     {
-        this.parameter = parameter;
+        super (parameter);
     }
 
 
@@ -43,14 +39,6 @@ public class ResetParameter implements IParameter
     public void setValue (final IValueChanger valueChanger, final int value)
     {
         this.parameter.resetValue ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public int getValue ()
-    {
-        return this.parameter.getValue ();
     }
 
 
@@ -104,89 +92,9 @@ public class ResetParameter implements IParameter
 
     /** {@inheritDoc} */
     @Override
-    public void setName (final String name)
-    {
-        this.parameter.setName (name);
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean doesExist ()
-    {
-        return this.parameter.doesExist ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public int getIndex ()
-    {
-        return this.parameter.getIndex ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public int getPosition ()
-    {
-        return this.parameter.getPosition ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public boolean isSelected ()
-    {
-        return this.parameter.isSelected ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public void setSelected (final boolean isSelected)
-    {
-        this.parameter.setSelected (isSelected);
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public void select ()
-    {
-        this.parameter.select ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public void toggleMultiSelect ()
-    {
-        this.parameter.toggleMultiSelect ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
     public String getName (final int limit)
     {
         return StringUtils.optimizeName (this.getName (), limit);
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public void addNameObserver (final IValueObserver<String> observer)
-    {
-        this.parameter.addNameObserver (observer);
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public void enableObservers (final boolean enable)
-    {
-        this.parameter.enableObservers (enable);
     }
 
 
@@ -200,40 +108,8 @@ public class ResetParameter implements IParameter
 
     /** {@inheritDoc} */
     @Override
-    public String getDisplayedValue ()
+    public int getNumberOfSteps ()
     {
-        return this.parameter.getDisplayedValue ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public String getDisplayedValue (final int limit)
-    {
-        return this.parameter.getDisplayedValue (limit);
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public void touchValue (final boolean isBeingTouched)
-    {
-        this.parameter.touchValue (isBeingTouched);
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public int getModulatedValue ()
-    {
-        return this.parameter.getModulatedValue ();
-    }
-
-
-    /** {@inheritDoc} */
-    @Override
-    public void setIndication (final boolean enable)
-    {
-        this.parameter.setIndication (enable);
+        return this.parameter.getNumberOfSteps ();
     }
 }

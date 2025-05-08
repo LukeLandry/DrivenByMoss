@@ -122,6 +122,8 @@ public class MCUConfiguration extends AbstractConfiguration
     public static final Integer       PIN_FXTRACKS_TO_LAST_CONTROLLER       = Integer.valueOf (66);
     /** Support X-Touch display back-light colors. */
     public static final Integer       X_TOUCH_DISPLAY_COLORS                = Integer.valueOf (67);
+    /** A button/foot-switch assignment has changed. */
+    public static final Integer       ASSIGNABLE_BUTTONS                    = Integer.valueOf (68);
 
     /** Use a Function button to switch to previous mode. */
     public static final int           FOOTSWITCH_PREV_MODE                  = 15;
@@ -143,8 +145,12 @@ public class MCUConfiguration extends AbstractConfiguration
     public static final int           PREV_CHANNEL                          = 23;
     /** Use a Function button to switch to next channel. */
     public static final int           NEXT_CHANNEL                          = 24;
+    /** Toggle between the encoder knob behavior and controlling the last selected parameter. */
+    public static final int           CONTROL_LAST_PARAM_ENCODER            = 25;
+    /** Toggle between the master fader behavior and controlling the last selected parameter. */
+    public static final int           CONTROL_LAST_PARAM_MASTER_FADER       = 26;
     /** Use a Function button to execute an action. */
-    public static final int           FOOTSWITCH_ACTION                     = 25;
+    public static final int           FOOTSWITCH_ACTION                     = 27;
 
     private static final String       CATEGORY_EXTENDER_SETUP               = "Extender Setup (requires restart)";
     private static final String       CATEGORY_SEGMENT_DISPLAY              = "Segment Display";
@@ -201,10 +207,13 @@ public class MCUConfiguration extends AbstractConfiguration
         "Device on/off",
         "Channel Prev",
         "Channel Next",
+        "Last parameter (encoder)",
+        "Last parameter (master fader)",
         "Action"
     };
 
-    private static final String []    ASSIGNABLE_BUTTON_NAMES               =
+    /** The names of the assignable buttons / switches. */
+    public static final String []     ASSIGNABLE_BUTTON_NAMES               =
     {
         "Footswitch 1",
         "Footswitch 2",
@@ -723,7 +732,12 @@ public class MCUConfiguration extends AbstractConfiguration
         {
             final int pos = i;
             final IEnumSetting assignableSetting = settingsUI.getEnumSetting (ASSIGNABLE_BUTTON_NAMES[i], CATEGORY_ASSIGNABLE_BUTTONS, ASSIGNABLE_VALUES, ASSIGNABLE_VALUES[ASSIGNABLE_BUTTON_DEFAULTS[i]]);
-            assignableSetting.addValueObserver (value -> this.assignableFunctions[pos] = lookupIndex (ASSIGNABLE_VALUES, value));
+            assignableSetting.addValueObserver (value -> {
+
+                this.assignableFunctions[pos] = lookupIndex (ASSIGNABLE_VALUES, value);
+                this.notifyObservers (ASSIGNABLE_BUTTONS);
+
+            });
 
             final IActionSetting actionSetting = settingsUI.getActionSetting (ASSIGNABLE_BUTTON_NAMES[i] + " - Action", CATEGORY_ASSIGNABLE_BUTTONS);
             actionSetting.addValueObserver (value -> this.assignableFunctionActions[pos] = actionSetting.get ());

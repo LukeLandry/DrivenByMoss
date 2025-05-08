@@ -4,10 +4,10 @@
 
 package de.mossgrabers.bitwig.framework.daw.data;
 
+import com.bitwig.extension.controller.api.Parameter;
+
 import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
 import de.mossgrabers.framework.observer.IValueObserver;
-
-import com.bitwig.extension.controller.api.Parameter;
 
 
 /**

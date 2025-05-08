@@ -6,12 +6,14 @@ package de.mossgrabers.controller.mackie.mcu.command.trigger;
 
 import de.mossgrabers.controller.mackie.mcu.MCUConfiguration;
 import de.mossgrabers.controller.mackie.mcu.controller.MCUControlSurface;
+import de.mossgrabers.framework.command.continuous.JogWheelCommand;
 import de.mossgrabers.framework.command.trigger.FootswitchCommand;
 import de.mossgrabers.framework.configuration.AbstractConfiguration;
 import de.mossgrabers.framework.daw.IApplication;
 import de.mossgrabers.framework.daw.IModel;
 import de.mossgrabers.framework.featuregroup.IMode;
 import de.mossgrabers.framework.featuregroup.ModeManager;
+import de.mossgrabers.framework.mode.MasterVolumeMode;
 import de.mossgrabers.framework.mode.Modes;
 import de.mossgrabers.framework.utils.ButtonEvent;
 
@@ -23,10 +25,12 @@ import de.mossgrabers.framework.utils.ButtonEvent;
  */
 public class AssignableCommand extends FootswitchCommand<MCUControlSurface, MCUConfiguration>
 {
-    private final ModeSwitcher            switcher;
-    private final MCUFlipCommand          flipCommand;
-    private final MCUMoveTrackBankCommand previousTrackCommand;
-    private final MCUMoveTrackBankCommand nextTrackCommand;
+    private final JogWheelCommand<MCUControlSurface, MCUConfiguration>  jogWheelCommand;
+    private final ModeSwitcher                                          switcher;
+    private final MCUFlipCommand                                        flipCommand;
+    private final MCUMoveTrackBankCommand                               previousTrackCommand;
+    private final MCUMoveTrackBankCommand                               nextTrackCommand;
+    private final MasterVolumeMode<MCUControlSurface, MCUConfiguration> masterVolumeMode;
 
 
     /**
@@ -35,11 +39,15 @@ public class AssignableCommand extends FootswitchCommand<MCUControlSurface, MCUC
      * @param index The index of the assignable button
      * @param model The model
      * @param surface The surface
+     * @param jogWheelCommand The jog-wheel command
+     * @param masterVolumeMode
      */
-    public AssignableCommand (final int index, final IModel model, final MCUControlSurface surface)
+    public AssignableCommand (final int index, final IModel model, final MCUControlSurface surface, final JogWheelCommand<MCUControlSurface, MCUConfiguration> jogWheelCommand, final MasterVolumeMode<MCUControlSurface, MCUConfiguration> masterVolumeMode)
     {
         super (model, surface, index);
 
+        this.jogWheelCommand = jogWheelCommand;
+        this.masterVolumeMode = masterVolumeMode;
         this.switcher = new ModeSwitcher (surface);
         this.flipCommand = new MCUFlipCommand (model, surface);
 
@@ -113,6 +121,16 @@ public class AssignableCommand extends FootswitchCommand<MCUControlSurface, MCUC
                 this.nextTrackCommand.execute (event, velocity);
                 break;
 
+            case MCUConfiguration.CONTROL_LAST_PARAM_ENCODER:
+                if (event == ButtonEvent.DOWN)
+                    this.jogWheelCommand.toggleControlLastParamActive ();
+                break;
+
+            case MCUConfiguration.CONTROL_LAST_PARAM_MASTER_FADER:
+                if (event == ButtonEvent.DOWN)
+                    this.masterVolumeMode.toggleControlLastParamActive ();
+                break;
+
             case MCUConfiguration.FOOTSWITCH_ACTION:
                 if (event != ButtonEvent.DOWN)
                     return;
@@ -180,6 +198,12 @@ public class AssignableCommand extends FootswitchCommand<MCUControlSurface, MCUC
 
             case MCUConfiguration.FOOTSWITCH_DEVICE_ON_OFF:
                 return this.model.getCursorDevice ().isEnabled ();
+
+            case MCUConfiguration.CONTROL_LAST_PARAM_ENCODER:
+                return this.jogWheelCommand.isControlLastParamActive ();
+
+            case MCUConfiguration.CONTROL_LAST_PARAM_MASTER_FADER:
+                return this.masterVolumeMode.isControlLastParamActive ();
 
             case AbstractConfiguration.FOOTSWITCH_UNDO:
             case AbstractConfiguration.FOOTSWITCH_TAP_TEMPO:
