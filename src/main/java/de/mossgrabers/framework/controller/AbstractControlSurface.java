@@ -4,6 +4,8 @@
 
 package de.mossgrabers.framework.controller;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -434,12 +436,9 @@ public abstract class AbstractControlSurface<C extends Configuration> implements
         this.keyTranslationTable = table;
         if (this.input == null)
             return;
-        final Integer [] t = new Integer [table.length];
-        for (int i = 0; i < table.length; i++)
-            t[i] = Integer.valueOf (table[i]);
         final INoteInput defaultNoteInput = this.input.getDefaultNoteInput ();
         if (defaultNoteInput != null)
-            defaultNoteInput.setKeyTranslationTable (t);
+            defaultNoteInput.setKeyTranslationTable (table);
     }
 
 
@@ -457,12 +456,9 @@ public abstract class AbstractControlSurface<C extends Configuration> implements
     {
         if (this.input == null)
             return;
-        final Integer [] t = new Integer [table.length];
-        for (int i = 0; i < table.length; i++)
-            t[i] = Integer.valueOf (table[i]);
         final INoteInput defaultNoteInput = this.input.getDefaultNoteInput ();
         if (defaultNoteInput != null)
-            defaultNoteInput.setVelocityTranslationTable (t);
+            defaultNoteInput.setVelocityTranslationTable (table);
     }
 
 
@@ -917,7 +913,7 @@ public abstract class AbstractControlSurface<C extends Configuration> implements
 
 
     /**
-     * Handle pitchbend command.
+     * Handle pitch-bend command.
      *
      * @param data1 First data byte
      * @param data2 Second data byte
@@ -1034,6 +1030,22 @@ public abstract class AbstractControlSurface<C extends Configuration> implements
     public void sendMidiEvent (final int status, final int data1, final int data2)
     {
         this.input.sendRawMidiEvent (status, data1, data2);
+    }
+
+
+    protected void sendSysex (final byte []... data)
+    {
+        try (final ByteArrayOutputStream out = new ByteArrayOutputStream ())
+        {
+            for (final byte [] d: data)
+                out.write (d);
+            out.write ((byte) 0xF7);
+            this.output.sendSysex (out.toByteArray ());
+        }
+        catch (final IOException ex)
+        {
+            this.host.error ("Could not send MIDI sysex command.", ex);
+        }
     }
 
 

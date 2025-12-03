@@ -10,6 +10,7 @@ import de.mossgrabers.framework.configuration.AbstractConfiguration.RecordFuncti
 import de.mossgrabers.framework.configuration.AbstractConfiguration.TransportBehavior;
 import de.mossgrabers.framework.daw.constants.Resolution;
 import de.mossgrabers.framework.daw.midi.ArpeggiatorMode;
+import de.mossgrabers.framework.mode.Modes;
 import de.mossgrabers.framework.observer.ISettingObserver;
 import de.mossgrabers.framework.view.Views;
 
@@ -375,6 +376,14 @@ public interface Configuration
 
 
     /**
+     * Get the value of how much the main encoder should be slowed down. 0 is no slow down.
+     *
+     * @return The value in the range of [0, 100], default is 0
+     */
+    int getEncoderKnobSlowDown ();
+
+
+    /**
      * Get all supported Arpeggiator modes.
      *
      * @return The modes
@@ -530,6 +539,14 @@ public interface Configuration
      * @return The preferred note view
      */
     Views getStartupView ();
+
+
+    /**
+     * Get the preferred startup mode.
+     *
+     * @return The preferred startup mode
+     */
+    Modes getStartupMode ();
 
 
     /**

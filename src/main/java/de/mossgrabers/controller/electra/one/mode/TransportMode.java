@@ -197,7 +197,7 @@ public class TransportMode extends AbstractElectraOneMode
                         this.launchMarkers = !this.launchMarkers;
                         break;
                     case 5:
-                        this.transport.play ();
+                        this.playCommand.execute (ButtonEvent.UP, 127);
                         break;
                     default:
                         // Not used
@@ -233,11 +233,11 @@ public class TransportMode extends AbstractElectraOneMode
         {
             IMarker marker = markerBank.getItem (i);
             boolean doesExist = marker.doesExist ();
-            this.pageCache.updateElement (2, 1 + i, doesExist ? marker.getName () : " ", doesExist ? marker.getColor () : ColorEx.BLACK, Boolean.TRUE);
+            this.pageCache.updateElement (2, 1 + i, doesExist ? marker.getName () : " ", getMarkerColor (marker, doesExist), Boolean.valueOf (doesExist));
 
             marker = markerBank.getItem (4 + i);
             doesExist = marker.doesExist ();
-            this.pageCache.updateElement (3, 1 + i, doesExist ? marker.getName () : " ", doesExist ? marker.getColor () : ColorEx.BLACK, Boolean.TRUE);
+            this.pageCache.updateElement (3, 1 + i, doesExist ? marker.getName () : " ", getMarkerColor (marker, doesExist), Boolean.valueOf (doesExist));
         }
 
         // Row 5
@@ -248,7 +248,7 @@ public class TransportMode extends AbstractElectraOneMode
         this.pageCache.updateColor (5, 1, this.transport.isMetronomeOn () ? ElectraOneColorManager.METRONOME_ON : ElectraOneColorManager.METRONOME_OFF);
         final Optional<IFocusedParameter> focusedParameter = this.model.getFocusedParameter ();
         final int paramValue = focusedParameter.isPresent () ? focusedParameter.get ().getValue () : 0;
-        final String paramStr = focusedParameter.isPresent () ? focusedParameter.get ().getDisplayedValue () : "";
+        final String paramStr = focusedParameter.isPresent () ? focusedParameter.get ().getDisplayedValue () : " ";
         this.pageCache.updateValue (5, 2, paramValue, StringUtils.optimizeName (StringUtils.fixASCII (paramStr), 15));
         this.pageCache.updateColor (5, 3, this.transport.isArrangerOverdub () ? ElectraOneColorManager.AUTO_MODE_ON : ElectraOneColorManager.AUTO_MODE_OFF);
         this.pageCache.updateColor (5, 4, this.launchMarkers ? ElectraOneColorManager.MARKER_LAUNCH_ON : ElectraOneColorManager.MARKER_LAUNCH_OFF);
@@ -263,7 +263,20 @@ public class TransportMode extends AbstractElectraOneMode
         this.pageCache.updateColor (4, 5, this.transport.isRecording () ? ElectraOneColorManager.RECORD_ON : ElectraOneColorManager.RECORD_OFF);
         this.pageCache.updateColor (5, 5, this.transport.isPlaying () ? ElectraOneColorManager.PLAY_ON : ElectraOneColorManager.PLAY_OFF);
 
+        this.pageCache.updateElement (4, 3, " ", null, Boolean.FALSE);
+
         this.pageCache.flush ();
+    }
+
+
+    private static ColorEx getMarkerColor (final IMarker marker, final boolean doesExist)
+    {
+        if (doesExist)
+        {
+            final ColorEx color = marker.getColor ();
+            return ColorEx.BLACK.equals (color) ? ColorEx.GRAY : color;
+        }
+        return ColorEx.BLACK;
     }
 
 

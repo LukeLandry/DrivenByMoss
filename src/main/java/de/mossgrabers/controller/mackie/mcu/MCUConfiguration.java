@@ -16,6 +16,7 @@ import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
 import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.constants.Capability;
 import de.mossgrabers.framework.daw.midi.ArpeggiatorMode;
+import de.mossgrabers.framework.mode.Modes;
 
 
 /**
@@ -29,7 +30,7 @@ public class MCUConfiguration extends AbstractConfiguration
     public enum DisplayColors
     {
         /** Colors are off. */
-        OFF,
+        NONE,
         /** Colors can be displayed with Asparion commands. */
         ASPARION,
         /** Colors can be displayed with Behringer commands. */
@@ -43,7 +44,7 @@ public class MCUConfiguration extends AbstractConfiguration
     public enum MainDisplay
     {
         /** No display. */
-        OFF,
+        NONE,
         /** Asparion display with addition 3rd row and track numbers. */
         ASPARION,
         /** Uses Mackie protocol and 6 characters with a space. */
@@ -60,7 +61,7 @@ public class MCUConfiguration extends AbstractConfiguration
     public enum SecondDisplay
     {
         /** No second display. */
-        OFF,
+        NONE,
         /** Asparion display with addition 3rd row and track numbers. */
         ASPARION,
         /** QCon Pro-X length including master. */
@@ -74,7 +75,7 @@ public class MCUConfiguration extends AbstractConfiguration
     public enum VUMeterStyle
     {
         /** VU Meters are off. */
-        OFF,
+        NONE,
         /** VU Meters are Asparion style (all stereo, no main). */
         ASPARION,
         /** VU Meters are iCON style (all mono but additional stereo main). */
@@ -84,46 +85,77 @@ public class MCUConfiguration extends AbstractConfiguration
     }
 
 
+    private static final Modes []     STARTUP_MODES                         =
+    {
+        Modes.PAN,
+        Modes.VOLUME,
+        Modes.TRACK,
+        Modes.SEND1,
+        Modes.SEND2,
+        Modes.SEND3,
+        Modes.SEND4,
+        Modes.SEND5,
+        Modes.SEND6,
+        Modes.SEND7,
+        Modes.SEND8,
+        Modes.DEVICE_LAYER,
+        Modes.DEVICE_LAYER_VOLUME,
+        Modes.DEVICE_LAYER_PAN,
+        Modes.DEVICE_LAYER_SEND1,
+        Modes.DEVICE_LAYER_SEND2,
+        Modes.DEVICE_LAYER_SEND3,
+        Modes.DEVICE_LAYER_SEND4,
+        Modes.DEVICE_LAYER_SEND5,
+        Modes.DEVICE_LAYER_SEND6,
+        Modes.DEVICE_LAYER_SEND7,
+        Modes.DEVICE_LAYER_SEND8,
+        Modes.DEVICE_PARAMS,
+        Modes.USER,
+        Modes.EQ_DEVICE_PARAMS,
+        Modes.INSTRUMENT_DEVICE_PARAMS,
+        Modes.MARKERS
+    };
+
     private static final String       MCU_DEVICE_1_LEFT                     = "MCU Device 1 - left";
 
     /** Zoom state. */
-    public static final Integer       ZOOM_STATE                            = Integer.valueOf (50);
+    public static final Integer       ZOOM_STATE                            = Integer.valueOf (NEXT_SETTING_ID);
     /** Display time or beats. */
-    public static final Integer       DISPLAY_MODE_TIME_OR_BEATS            = Integer.valueOf (51);
+    public static final Integer       DISPLAY_MODE_TIME_OR_BEATS            = Integer.valueOf (NEXT_SETTING_ID + 1);
     /** Display mode tempo or ticks. */
-    public static final Integer       DISPLAY_MODE_TICKS_OR_TEMPO           = Integer.valueOf (52);
+    public static final Integer       DISPLAY_MODE_TICKS_OR_TEMPO           = Integer.valueOf (NEXT_SETTING_ID + 2);
     /** Has a main display? */
-    public static final Integer       MAIN_DISPLAY                          = Integer.valueOf (53);
+    public static final Integer       MAIN_DISPLAY                          = Integer.valueOf (NEXT_SETTING_ID + 3);
     /** Has a second display. */
-    public static final Integer       SECOND_DISPLAY                        = Integer.valueOf (54);
+    public static final Integer       SECOND_DISPLAY                        = Integer.valueOf (NEXT_SETTING_ID + 4);
     /** Has a segment display. */
-    public static final Integer       HAS_SEGMENT_DISPLAY                   = Integer.valueOf (55);
+    public static final Integer       HAS_SEGMENT_DISPLAY                   = Integer.valueOf (NEXT_SETTING_ID + 5);
     /** Has an assignment display. */
-    public static final Integer       HAS_ASSIGNMENT_DISPLAY                = Integer.valueOf (56);
+    public static final Integer       HAS_ASSIGNMENT_DISPLAY                = Integer.valueOf (NEXT_SETTING_ID + 6);
     /** Has motor faders. */
-    public static final Integer       HAS_MOTOR_FADERS                      = Integer.valueOf (57);
+    public static final Integer       HAS_MOTOR_FADERS                      = Integer.valueOf (NEXT_SETTING_ID + 7);
     /** Has only 1 fader. */
-    public static final Integer       HAS_ONLY_1_FADER                      = Integer.valueOf (58);
+    public static final Integer       HAS_ONLY_1_FADER                      = Integer.valueOf (NEXT_SETTING_ID + 8);
     /** Display track names in 1st display. */
-    public static final Integer       DISPLAY_TRACK_NAMES                   = Integer.valueOf (59);
+    public static final Integer       DISPLAY_TRACK_NAMES                   = Integer.valueOf (NEXT_SETTING_ID + 9);
     /** Replace the vertical zoom with mode change. */
-    public static final Integer       USE_VERT_ZOOM_FOR_MODES               = Integer.valueOf (60);
+    public static final Integer       USE_VERT_ZOOM_FOR_MODES               = Integer.valueOf (NEXT_SETTING_ID + 10);
     /** Use the faders like the editing knobs. */
-    public static final Integer       USE_FADERS_AS_KNOBS                   = Integer.valueOf (61);
+    public static final Integer       USE_FADERS_AS_KNOBS                   = Integer.valueOf (NEXT_SETTING_ID + 11);
     /** Select the channel when touching it's fader. */
-    public static final Integer       TOUCH_SELECTS_CHANNEL                 = Integer.valueOf (62);
+    public static final Integer       TOUCH_SELECTS_CHANNEL                 = Integer.valueOf (NEXT_SETTING_ID + 12);
     /** Activate volume mode when touching a volume fader. */
-    public static final Integer       TOUCH_CHANNEL_VOLUME_MODE             = Integer.valueOf (63);
+    public static final Integer       TOUCH_CHANNEL_VOLUME_MODE             = Integer.valueOf (NEXT_SETTING_ID + 13);
     /** Always send VU meters even if values haven't changed. */
-    public static final Integer       ALWAYS_SEND_VU_METERS                 = Integer.valueOf (64);
+    public static final Integer       ALWAYS_SEND_VU_METERS                 = Integer.valueOf (NEXT_SETTING_ID + 14);
     /** iCON specific Master VU meter. */
-    public static final Integer       ICON_VU_METER                         = Integer.valueOf (65);
+    public static final Integer       ICON_VU_METER                         = Integer.valueOf (NEXT_SETTING_ID + 15);
     /** Pin FX tracks to last controller. */
-    public static final Integer       PIN_FXTRACKS_TO_LAST_CONTROLLER       = Integer.valueOf (66);
+    public static final Integer       PIN_FXTRACKS_TO_LAST_CONTROLLER       = Integer.valueOf (NEXT_SETTING_ID + 16);
     /** Support X-Touch display back-light colors. */
-    public static final Integer       X_TOUCH_DISPLAY_COLORS                = Integer.valueOf (67);
+    public static final Integer       X_TOUCH_DISPLAY_COLORS                = Integer.valueOf (NEXT_SETTING_ID + 17);
     /** A button/foot-switch assignment has changed. */
-    public static final Integer       ASSIGNABLE_BUTTONS                    = Integer.valueOf (68);
+    public static final Integer       ASSIGNABLE_BUTTONS                    = Integer.valueOf (NEXT_SETTING_ID + 18);
 
     /** Use a Function button to switch to previous mode. */
     public static final int           FOOTSWITCH_PREV_MODE                  = 15;
@@ -161,6 +193,8 @@ public class MCUConfiguration extends AbstractConfiguration
     private static final String       DEVICE_ASPARION_D700                  = "Asparion D700";
     private static final String       DEVICE_BEHRINGER_X_TOUCH              = "Behringer X-Touch";
     private static final String       DEVICE_BEHRINGER_X_TOUCH_ONE          = "Behringer X-Touch One";
+    private static final String       DEVICE_ICON_P1_M                      = "iCON P1-M";
+    private static final String       DEVICE_ICON_P1_NANO                   = "iCON P1-NANO";
     private static final String       DEVICE_ICON_PLATFORM_M                = "iCON Platform M / M+";
     private static final String       DEVICE_ICON_QCON_PRO_X                = "iCON QConPro X";
     private static final String       DEVICE_ICON_QCON_V1M                  = "iCON V1-M";
@@ -173,6 +207,8 @@ public class MCUConfiguration extends AbstractConfiguration
         DEVICE_ASPARION_D700,
         DEVICE_BEHRINGER_X_TOUCH,
         DEVICE_BEHRINGER_X_TOUCH_ONE,
+        DEVICE_ICON_P1_M,
+        DEVICE_ICON_P1_NANO,
         DEVICE_ICON_PLATFORM_M,
         DEVICE_ICON_QCON_PRO_X,
         DEVICE_ICON_QCON_V1M,
@@ -284,7 +320,7 @@ public class MCUConfiguration extends AbstractConfiguration
 
     private static final String []    MAIN_DISPLAY_OPTIONS                  =
     {
-        "Off",
+        "None",
         "Asparion",
         "Mackie - 6 characters",
         "Mackie - 7 characters"
@@ -292,7 +328,7 @@ public class MCUConfiguration extends AbstractConfiguration
 
     private static final String []    DISPLAY_COLORS_OPTIONS                =
     {
-        "Off",
+        "None",
         "Asparion",
         "Behringer",
         "iCON"
@@ -300,7 +336,7 @@ public class MCUConfiguration extends AbstractConfiguration
 
     private static final String []    VU_METER_STYLES                       =
     {
-        "Off",
+        "None",
         "Asparion",
         "iCON",
         "Mackie"
@@ -308,7 +344,7 @@ public class MCUConfiguration extends AbstractConfiguration
 
     private static final String []    SECOND_DISPLAY_OPTIONS                =
     {
-        "Off",
+        "None",
         "Asparion",
         "iCON QCon Pro-X",
         "iCON V1-M"
@@ -320,6 +356,7 @@ public class MCUConfiguration extends AbstractConfiguration
     private IEnumSetting              displayTrackNamesSetting;
     private IEnumSetting              useFadersAsKnobsSetting;
     private IEnumSetting              vuMeterStyleSetting;
+    private IEnumSetting              enableVuMetersSetting;
     private IEnumSetting              hasMotorFadersSetting;
 
     private boolean                   zoomState;
@@ -336,6 +373,7 @@ public class MCUConfiguration extends AbstractConfiguration
     private boolean                   useFadersAsKnobs;
     private boolean                   alwaysSendVuMeters;
     private VUMeterStyle              vuMeterStyle;
+    private boolean                   enableVuMeters;
     private DisplayColors             displayColors;
     private boolean                   touchSelectsChannel;
     private boolean                   touchChannelVolumeMode;
@@ -406,10 +444,12 @@ public class MCUConfiguration extends AbstractConfiguration
         // Workflow
 
         this.activateExcludeDeactivatedItemsSetting (globalSettings);
+        this.activateStartupModeSetting (globalSettings, STARTUP_MODES);
         this.activateNewClipLengthSetting (globalSettings);
         this.activateZoomStateSetting (globalSettings);
         this.activateChannelTouchSetting (globalSettings);
         this.activateKnobSpeedSetting (globalSettings);
+        this.activateEncoderKnobSpeedSetting (globalSettings);
     }
 
 
@@ -427,7 +467,7 @@ public class MCUConfiguration extends AbstractConfiguration
             else if (MAIN_DISPLAY_OPTIONS[3].equals (value))
                 this.mainDisplay = MainDisplay.MACKIE_7_CHARACTERS;
             else
-                this.mainDisplay = MainDisplay.OFF;
+                this.mainDisplay = MainDisplay.NONE;
             this.notifyObservers (MAIN_DISPLAY);
 
         });
@@ -443,7 +483,7 @@ public class MCUConfiguration extends AbstractConfiguration
             else if (SECOND_DISPLAY_OPTIONS[3].equals (value))
                 this.secondDisplay = SecondDisplay.V1M;
             else
-                this.secondDisplay = SecondDisplay.OFF;
+                this.secondDisplay = SecondDisplay.NONE;
 
             this.notifyObservers (SECOND_DISPLAY);
         });
@@ -498,7 +538,7 @@ public class MCUConfiguration extends AbstractConfiguration
         });
         this.isSettingActive.add (USE_FADERS_AS_KNOBS);
 
-        this.vuMeterStyleSetting = settingsUI.getEnumSetting ("VU Meters", CATEGORY_HARDWARE_SETUP, VU_METER_STYLES, VU_METER_STYLES[0]);
+        this.vuMeterStyleSetting = settingsUI.getEnumSetting ("VU Meter Type", CATEGORY_HARDWARE_SETUP, VU_METER_STYLES, VU_METER_STYLES[0]);
         this.vuMeterStyleSetting.addValueObserver (value -> {
 
             if (VU_METER_STYLES[1].equals (value))
@@ -508,11 +548,11 @@ public class MCUConfiguration extends AbstractConfiguration
             else if (VU_METER_STYLES[3].equals (value))
                 this.vuMeterStyle = VUMeterStyle.MACKIE;
             else
-                this.vuMeterStyle = VUMeterStyle.OFF;
+                this.vuMeterStyle = VUMeterStyle.NONE;
 
-            this.notifyObservers (ENABLE_VU_METERS);
+            this.notifyObservers (VU_METER_TYPE);
         });
-        this.isSettingActive.add (ENABLE_VU_METERS);
+        this.isSettingActive.add (VU_METER_TYPE);
 
         final IEnumSetting alwaysSendVuMetersSetting = settingsUI.getEnumSetting ("Always send VU Meters", CATEGORY_HARDWARE_SETUP, ON_OFF_OPTIONS, ON_OFF_OPTIONS[0]);
         alwaysSendVuMetersSetting.addValueObserver (value -> {
@@ -520,6 +560,13 @@ public class MCUConfiguration extends AbstractConfiguration
             this.notifyObservers (ALWAYS_SEND_VU_METERS);
         });
         this.isSettingActive.add (ALWAYS_SEND_VU_METERS);
+
+        this.enableVuMetersSetting = settingsUI.getEnumSetting ("VU Meters", CATEGORY_HARDWARE_SETUP, ON_OFF_OPTIONS, ON_OFF_OPTIONS[1]);
+        this.enableVuMetersSetting.addValueObserver (value -> {
+            this.enableVuMeters = "On".equals (value);
+            this.notifyObservers (ENABLE_VU_METERS);
+        });
+        this.isSettingActive.add (ENABLE_VU_METERS);
 
         final IEnumSetting displayColorsSetting = settingsUI.getEnumSetting ("Display colors", CATEGORY_HARDWARE_SETUP, DISPLAY_COLORS_OPTIONS, DISPLAY_COLORS_OPTIONS[0]);
         displayColorsSetting.addValueObserver (value -> {
@@ -531,7 +578,7 @@ public class MCUConfiguration extends AbstractConfiguration
             else if (DISPLAY_COLORS_OPTIONS[3].equals (value))
                 this.displayColors = DisplayColors.ICON;
             else
-                this.displayColors = DisplayColors.OFF;
+                this.displayColors = DisplayColors.NONE;
 
             this.notifyObservers (X_TOUCH_DISPLAY_COLORS);
         });
@@ -601,6 +648,36 @@ public class MCUConfiguration extends AbstractConfiguration
                     alwaysSendVuMetersSetting.set (off);
                     this.vuMeterStyleSetting.set (VU_METER_STYLES[3]);
                     displayColorsSetting.set (DISPLAY_COLORS_OPTIONS[0]);
+                    break;
+
+                case DEVICE_ICON_P1_M:
+                    mainDisplaySetting.set (MAIN_DISPLAY_OPTIONS[3]);
+                    secondDisplaySetting.set (SECOND_DISPLAY_OPTIONS[0]);
+                    hasSegmentDisplaySetting.set (on);
+                    hasAssignmentDisplaySetting.set (off);
+                    this.hasMotorFadersSetting.set (on);
+                    hasOnly1FaderSetting.set (off);
+                    this.displayTrackNamesSetting.set (on);
+                    useVertZoomForModesSetting.set (off);
+                    this.useFadersAsKnobsSetting.set (off);
+                    alwaysSendVuMetersSetting.set (off);
+                    this.vuMeterStyleSetting.set (VU_METER_STYLES[2]);
+                    displayColorsSetting.set (DISPLAY_COLORS_OPTIONS[3]);
+                    break;
+
+                case DEVICE_ICON_P1_NANO:
+                    mainDisplaySetting.set (MAIN_DISPLAY_OPTIONS[3]);
+                    secondDisplaySetting.set (SECOND_DISPLAY_OPTIONS[0]);
+                    hasSegmentDisplaySetting.set (on);
+                    hasAssignmentDisplaySetting.set (off);
+                    this.hasMotorFadersSetting.set (on);
+                    hasOnly1FaderSetting.set (on);
+                    this.displayTrackNamesSetting.set (on);
+                    useVertZoomForModesSetting.set (off);
+                    this.useFadersAsKnobsSetting.set (off);
+                    alwaysSendVuMetersSetting.set (off);
+                    this.vuMeterStyleSetting.set (VU_METER_STYLES[2]);
+                    displayColorsSetting.set (DISPLAY_COLORS_OPTIONS[3]);
                     break;
 
                 case DEVICE_ICON_PLATFORM_M:
@@ -961,11 +1038,31 @@ public class MCUConfiguration extends AbstractConfiguration
     }
 
 
+    /**
+     * Returns true if VU meters are activated.
+     *
+     * @return True if VU meters are activated
+     */
+    public boolean areVuMetersEnabled ()
+    {
+        return this.enableVuMeters;
+    }
+
+
+    /**
+     * Toggles VU meters on/off.
+     */
+    public void toggleVuMetersEnabled ()
+    {
+        this.enableVuMetersSetting.set (ON_OFF_OPTIONS[this.enableVuMeters ? 0 : 1]);
+    }
+
+
     /** {@inheritDoc} */
     @Override
     public boolean isEnableVUMeters ()
     {
-        return this.vuMeterStyle != VUMeterStyle.OFF;
+        return this.vuMeterStyle != VUMeterStyle.NONE;
     }
 
 

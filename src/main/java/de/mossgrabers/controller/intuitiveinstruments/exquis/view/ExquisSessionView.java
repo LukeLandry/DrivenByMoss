@@ -43,7 +43,7 @@ public class ExquisSessionView extends AbstractSessionView<ExquisControlSurface,
         { 28, 29, 30, 31 },
         { 23, 24, 25, 26 }
     };
-    
+
     private static final int [] GRID_SCENES    = { 27, 32, 38, 43, 49, 54, 60 };
     private static final int [] GRID_STOP      = { 17, 18, 19, 20, 21 };
     private static final int [] GRID_MUTE      = { 12, 13, 14, 15, 16 };
@@ -85,11 +85,12 @@ public class ExquisSessionView extends AbstractSessionView<ExquisControlSurface,
         final LightInfo isRecordingQueued = new LightInfo (redHi, black, true);
         final LightInfo isPlaying = new LightInfo (green, green, false);
         final LightInfo isPlayingQueued = new LightInfo (green, green, true);
+        final LightInfo isStopQueued = new LightInfo (green, green, true);
         final LightInfo hasContent = new LightInfo (orange, white, false);
         final LightInfo noContent = new LightInfo (black, -1, false);
         final LightInfo recArmed = new LightInfo (redLo, -1, false);
         final LightInfo isMuted = new LightInfo (grey, -1, false);
-        this.setColors (isRecording, isRecordingQueued, isPlaying, isPlayingQueued, hasContent, noContent, recArmed, isMuted);
+        this.setColors (isRecording, isRecordingQueued, isPlaying, isPlayingQueued, isStopQueued, hasContent, noContent, recArmed, isMuted);
 
         this.birdColorHasContent = new LightInfo (orange, -1, false);
         this.birdColorSelected = isPlaying;
@@ -267,7 +268,7 @@ public class ExquisSessionView extends AbstractSessionView<ExquisControlSurface,
         // Draw the scenes
         for (int i = 0; i < GRID_SCENES.length; i++)
         {
-            final String buttonColorID = getButtonColorID (ButtonID.get (ButtonID.SCENE1, this.rows - i - 1));
+            final String buttonColorID = this.getButtonColorID (ButtonID.get (ButtonID.SCENE1, this.rows - i - 1));
             padGrid.light (36 + GRID_SCENES[i], buttonColorID);
         }
 

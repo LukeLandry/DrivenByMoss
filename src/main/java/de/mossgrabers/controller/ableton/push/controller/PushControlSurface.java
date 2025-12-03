@@ -19,6 +19,9 @@ import de.mossgrabers.framework.daw.midi.IMidiOutput;
 import de.mossgrabers.framework.daw.midi.INoteInput;
 import de.mossgrabers.framework.daw.midi.MidiConstants;
 import de.mossgrabers.framework.featuregroup.IExpressionView;
+import de.mossgrabers.framework.featuregroup.IView;
+import de.mossgrabers.framework.scale.MPEStatus;
+import de.mossgrabers.framework.scale.Scales;
 import de.mossgrabers.framework.utils.StringUtils;
 
 
@@ -29,6 +32,22 @@ import de.mossgrabers.framework.utils.StringUtils;
  */
 public class PushControlSurface extends AbstractControlSurface<PushConfiguration>
 {
+    private static final int []      CHROMATIC_SCALE                      = new int []
+    {
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+    };
+
     /** The names for the dynamic curves. */
     public static final List<String> PUSH_PAD_CURVES_NAME                 = List.of ("Linear", "Log 1 (Default)", "Log 2", "Log 3", "Log 4", "Log 5");
 
@@ -462,6 +481,9 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     private static final int         PAD_VELOCITY_CURVE_CHUNK_SIZE        = 16;
     private static final int         NUM_VELOCITY_CURVE_ENTRIES           = 128;
 
+    private static final int         MIN_OUT                              = 1;
+    private static final int         MAX_OUT                              = 127;
+
     private final ColorPalette       colorPalette;
 
     private int                      ribbonMode                           = -1;
@@ -472,6 +494,18 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     private int                      buildNumber                          = -1;
     private int                      serialNumber                         = -1;
     private int                      boardRevision                        = -1;
+
+    // Push 2
+    private int                      currentPadSensitivityPush2           = -1;
+    private int                      currentPadGainPush2                  = -1;
+    private int                      currentPadDynamicsPush2              = -1;
+    // Push 3
+    private int                      currentThreshold                     = -1;
+    private int                      currentDrive                         = -1;
+    private int                      currentCompand                       = -1;
+    private int                      currentRange                         = -1;
+    private int []                   currentCurve                         = null;
+    private final MPEStatus          mpeStatus                            = new MPEStatus ();
 
 
     /**
@@ -504,7 +538,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
      */
     public String getSelectedPadThreshold ()
     {
-        return PUSH_PAD_THRESHOLDS_NAME.get (this.configuration.getPadThreshold ());
+        return PUSH_PAD_THRESHOLDS_NAME.get (this.configuration.getPadThresholdPush1 ());
     }
 
 
@@ -516,6 +550,87 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     public String getSelectedVelocityCurve ()
     {
         return PUSH_PAD_CURVES_NAME.get (this.configuration.getVelocityCurve ());
+    }
+
+
+    /**
+     *
+     * @param channel The MIDI channel (1-15)
+     * @param data1 The LSB value byte
+     * @param data2 The MSB value byte
+     */
+    public void handleMPEPitchbend (final int channel, final int data1, final int data2)
+    {
+        if (this.configuration.isMPEEnabled ())
+        {
+            final IView view = this.viewManager.getActive ();
+            if (view instanceof IExpressionView)
+            {
+                final int note = this.mpeStatus.getNoteStatus (channel);
+                if (note != -1)
+                {
+                    final Scales scales = view.getKeyManager ().getScales ();
+                    final int [] intervals = scales.isChromatic () ? CHROMATIC_SCALE : scales.getScale ().getIntervals ();
+
+                    // Range of -10 to 10
+                    final int bendIndex = data2 - 64;
+
+                    // Range of -1279 to 1279
+                    final int value = bendIndex * 128 + (data1 >= 64 ? data1 - 127 : data1);
+                    // Scale to 0..7
+                    final int padIndex = (int) Math.round (value / 170.6);
+
+                    final int tonic = scales.getScaleOffset ();
+
+                    final int noteIndex = calcNoteIndex (intervals, note, tonic);
+
+                    // Work in a single linear index, then wrap with floorDiv/floorMod
+                    final int linear = noteIndex + padIndex;
+                    final int deg = Math.floorMod (linear, intervals.length);
+                    final int oct = Math.floorDiv (linear, intervals.length);
+
+                    // Semitone offset to target degree
+                    final int semitones = 12 * oct + intervals[deg] - intervals[noteIndex];
+
+                    // Next/prev degree for cents interpolation (handles negative correctly)
+                    final boolean positive = value >= 0;
+                    final int linearNext = linear + (positive ? 1 : -1);
+                    final int nextDeg = Math.floorMod (linearNext, intervals.length);
+                    final int nextOct = Math.floorDiv (linearNext, intervals.length);
+                    final int nextPrevSemitones = 12 * nextOct + intervals[nextDeg] - intervals[noteIndex];
+
+                    final double diff = (nextPrevSemitones - semitones) * 100.0 / 2.0;
+
+                    // Residual within the current pad, in your scaling
+                    final double residual = value - padIndex * 170.6;
+                    final int cents = (int) Math.round (residual / 85.3 * diff);
+
+                    // Convert to pitch-bend and send (unchanged)
+                    final int bendRange = 24;
+                    final double pitchSemis = semitones + cents / 100.0;
+                    final double f = Math.max (-1.0, Math.min (1.0, pitchSemis / bendRange));
+                    final int delta = (int) Math.round (8191.0 * f);
+                    final int value14 = Math.max (0, Math.min (16383, 8192 + delta));
+                    final int lsb = value14 & 0x7F;
+                    final int msb = value14 >> 7 & 0x7F;
+                    this.input.sendRawMidiEvent (MidiConstants.CMD_PITCHBEND + channel, lsb, msb);
+                }
+            }
+            return;
+        }
+
+        this.input.sendRawMidiEvent (MidiConstants.CMD_PITCHBEND + channel, data1, data2);
+    }
+
+
+    private static int calcNoteIndex (final int [] intervals, final int note,
+            final int tonic /* 0=C .. 11=B */)
+    {
+        final int rel = Math.floorMod (note - tonic, 12);
+        for (int i = 0; i < intervals.length; i++)
+            if (intervals[i] == rel)
+                return i;
+        return 0;
     }
 
 
@@ -543,15 +658,39 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
             final int code = status & 0xF0;
             final int channel = status & 0xF;
 
-            // Ignore all MIDI notes off on startup
-            if (channel == 0 && code == MidiConstants.CMD_CC && data1 == 123)
-                return;
-
-            // Ignore MPE messages
-            if (channel > 0)
+            // Ignore 'All MIDI Note off' on startup
+            if (channel == 0)
             {
-                if (code == MidiConstants.CMD_CC && data1 == 74 || code == MidiConstants.CMD_PITCHBEND)
+                if (code == MidiConstants.CMD_CC && data1 == 123)
                     return;
+            }
+            else
+            {
+                switch (code)
+                {
+                    // Ignore MPE messages
+                    case MidiConstants.CMD_CC:
+                        if (data1 == 74)
+                            return;
+                        break;
+
+                    case MidiConstants.CMD_NOTE_ON:
+                    case MidiConstants.CMD_NOTE_OFF:
+                        if (this.configuration.isMPEEnabled ())
+                        {
+                            final IView view = this.getViewManager ().getActive ();
+                            if (view instanceof IExpressionView)
+                            {
+                                final boolean isNoteOn = code == MidiConstants.CMD_NOTE_ON & data2 > 0;
+                                // Reset pitch-bend
+                                if (!isNoteOn)
+                                    this.input.sendRawMidiEvent (MidiConstants.CMD_PITCHBEND + channel, 0, 64);
+                                this.mpeStatus.handleNote (channel, view.getKeyManager ().getMidiNoteFromGrid (data1), isNoteOn);
+                            }
+                            return;
+                        }
+                        break;
+                }
             }
         }
 
@@ -590,7 +729,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
                 default:
                     break;
             }
-            this.sendSysEx (new int []
+            this.sendSysex (new int []
             {
                 23,
                 status
@@ -618,9 +757,107 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     /**
      * Set the pad sensitivity of Push 1.
      */
-    public void sendPadSensitivity ()
+    public void sendPadSensitivityPush1 ()
     {
-        this.sendSysExPush1 ("5D 00 20 " + PUSH_PAD_THRESHOLDS_DATA[this.configuration.getPadThreshold ()] + " " + PUSH_PAD_CURVES_DATA[this.configuration.getVelocityCurve ()]);
+        this.sendSysExPush1 ("5D 00 20 " + PUSH_PAD_THRESHOLDS_DATA[this.configuration.getPadThresholdPush1 ()] + " " + PUSH_PAD_CURVES_DATA[this.configuration.getVelocityCurve ()]);
+    }
+
+
+    /**
+     * Set the pad sensitivity of Push 2.
+     */
+    public void sendPadSensitivityPush2 ()
+    {
+        this.sendPadVelocityCurvePush2 ();
+        this.sendPadThresholdPush2 ();
+    }
+
+
+    /**
+     * Set the pad sensitivity of Push 3.
+     */
+    public void sendPadSensitivityPush3 ()
+    {
+        final int [] curve = this.createPadSensitivityCurvePush3 ();
+        final int [] data = new int [129];
+        // The command
+        data[0] = 0x43;
+        System.arraycopy (curve, 0, data, 1, curve.length);
+        this.sendSysex (curve);
+    }
+
+
+    /**
+     * Get the pad sensitivity curve for the Push 3.
+     *
+     * @return The curve with 128 entries
+     */
+    public int [] createPadSensitivityCurvePush3 ()
+    {
+        final int threshold = this.configuration.getPadCurveThresholdPush3 ();
+        final int drive = this.configuration.getPadCurveDrivePush3 ();
+        final int compand = this.configuration.getPadCurveCompandPush3 ();
+        final int range = this.configuration.getPadCurveRangePush3 ();
+        if (this.currentThreshold == threshold && this.currentDrive == drive && this.currentCompand == compand && this.currentRange == range)
+            return this.currentCurve;
+        this.currentThreshold = threshold;
+        this.currentDrive = drive;
+        this.currentCompand = compand;
+        this.currentRange = range;
+
+        // Scale threshold to a maximum of 16 values
+        final int numThresholdValues = (int) Math.round (Math.clamp (threshold, 0, 100) * 16 / 100.0);
+        // Scale range to a maximum of 103 values
+        final int numRangeValues = (int) Math.round (Math.clamp (range, 0, 100) * 103 / 100.0);
+        // Calculate 2 more curve values since the first is 1 and the last 127
+        final int numCurveValues = 128 - numThresholdValues - numRangeValues + 2;
+
+        final int [] curve = new int [128];
+
+        // Fill the threshold part
+        for (int i = 0; i < numThresholdValues; i++)
+            curve[i] = 1;
+
+        // Create the curve
+        // Compand: g>0.5 = slow attack, g<0.5 = fast attack
+        final double g = Math.clamp (0.5 + compand / 100.0, 0.01, 0.99);
+        // Drive: b>0.5 = faster early increase, b<0.5 = slower early increase
+        final double b = Math.clamp (0.5 + drive / 100.0, 0.01, 0.99);
+        for (int i = 0; i < numCurveValues; i++)
+        {
+            final double x = (double) i / (numCurveValues - 1); // 0..1
+            double y = gain (x, g); // S-shape (Compand)
+            y = bias (y, b); // skew (Drive)
+
+            int v = (int) Math.round (MIN_OUT + y * (MAX_OUT - MIN_OUT));
+            v = Math.clamp (v, MIN_OUT, MAX_OUT);
+            if (numThresholdValues + i <= 128)
+                curve[Math.max (0, numThresholdValues + i - 1)] = v;
+        }
+
+        // Fill the range part
+        final int offset = 128 - numRangeValues;
+        for (int i = offset; i < curve.length; i++)
+            curve[i] = 127;
+
+        this.currentCurve = curve;
+        return curve;
+    }
+
+
+    // Schlick bias: b in (0,1); 0.5 ≈ linear; >0.5 faster early rise; <0.5 slower early rise
+    private static double bias (final double x, final double b)
+    {
+        return x / ((1.0 / b - 2.0) * (1.0 - x) + 1.0);
+    }
+
+
+    // Schlick gain: g in (0,1); 0.5 = linear; g>0.5 slow attack; g<0.5 fast attack
+    private static double gain (final double x, final double g)
+    {
+        if (x < 0.5)
+            return 0.5 * bias (2.0 * x, 1.0 - g);
+        return 1.0 - 0.5 * bias (2.0 - 2.0 * x, 1.0 - g);
     }
 
 
@@ -632,7 +869,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     public void sendPressureMode (final boolean isPolyPressure)
     {
         if (this.configuration.isPushModern ())
-            this.sendSysEx ("1E 0" + (isPolyPressure ? "1" : "0"));
+            this.sendSysex ("1E 0" + (isPolyPressure ? "1" : "0"));
         else
             this.sendSysExPush1 ("5C 00 01 0" + (isPolyPressure ? "0" : "1"));
     }
@@ -641,25 +878,25 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     /**
      * Send the pad threshold.
      */
-    public void sendPadThreshold ()
+    private void sendPadThresholdPush2 ()
     {
         final int [] args = new int [9];
         args[0] = 27;
         add7L5M (args, 1, 33); // threshold0
         add7L5M (args, 3, 31); // threshold1
-        final int padSensitivity = this.configuration.getPadSensitivity ();
+        final int padSensitivity = this.configuration.getPadSensitivityPush2 ();
         add7L5M (args, 5, PUSH2_CPMIN[padSensitivity]); // cpmin
         add7L5M (args, 7, PUSH2_CPMAX[padSensitivity]); // cpmax
-        this.sendSysEx (args);
+        this.sendSysex (args);
     }
 
 
     /**
      * Set the pad velocity of Push 2.
      */
-    public void sendPadVelocityCurve ()
+    private void sendPadVelocityCurvePush2 ()
     {
-        final int [] velocities = generateVelocityCurve (this.configuration.getPadSensitivity (), this.configuration.getPadGain (), this.configuration.getPadDynamics ());
+        final int [] velocities = this.createPadSensitivityCurvePush2 ();
         for (int index = 0; index < velocities.length; index += PAD_VELOCITY_CURVE_CHUNK_SIZE)
         {
             final int [] args = new int [2 + PAD_VELOCITY_CURVE_CHUNK_SIZE];
@@ -667,7 +904,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
             args[1] = index;
             for (int i = 0; i < PAD_VELOCITY_CURVE_CHUNK_SIZE; i++)
                 args[i + 2] = velocities[index + i];
-            this.sendSysEx (args);
+            this.sendSysex (args);
         }
     }
 
@@ -678,7 +915,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     public void sendDisplayBrightness ()
     {
         final int brightness = this.configuration.getDisplayBrightness () * 255 / 100;
-        this.sendSysEx (new int []
+        this.sendSysex (new int []
         {
             8,
             brightness & 127,
@@ -693,7 +930,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     public void sendLEDBrightness ()
     {
         final int brightness = this.configuration.getLedBrightness () * 127 / 100;
-        this.sendSysEx (new int []
+        this.sendSysex (new int []
         {
             6,
             brightness
@@ -709,7 +946,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     public void sendMPEActive (final boolean enable)
     {
         // Same command as sendPressureMode
-        this.sendSysEx (enable ? "1E 02" : "1E 01");
+        this.sendSysex (enable ? "1E 02" : "1E 01");
     }
 
 
@@ -720,7 +957,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
      */
     public void sendPerPadPitchbendActive (final boolean enable)
     {
-        this.sendSysEx ("26 07 08 0" + (enable ? "2" : "0") + " 00");
+        this.sendSysex ("26 07 08 0" + (enable ? "2" : "0") + " 00");
     }
 
 
@@ -731,7 +968,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
      */
     public void sendInTuneLocation (final int inTuneLocation)
     {
-        this.sendSysEx ("26 07 0E 0" + inTuneLocation + " 00");
+        this.sendSysex ("26 07 0E 0" + inTuneLocation + " 00");
     }
 
 
@@ -742,7 +979,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
      */
     public void sendInTuneWidth (final int inTuneWidthIndex)
     {
-        this.sendSysEx ("26 07 14 " + StringUtils.toHexStr (TUNE_WIDTH_VALUES[inTuneWidthIndex]) + " 00");
+        this.sendSysex ("26 07 14 " + StringUtils.toHexStr (TUNE_WIDTH_VALUES[inTuneWidthIndex]) + " 00");
     }
 
 
@@ -753,7 +990,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
      */
     public void sendSlideHeight (final int slideHeightIndex)
     {
-        this.sendSysEx ("26 07 24 " + StringUtils.toHexStr (SLIDE_HEIGHT_VALUES[slideHeightIndex]) + " 00");
+        this.sendSysex ("26 07 24 " + StringUtils.toHexStr (SLIDE_HEIGHT_VALUES[slideHeightIndex]) + " 00");
     }
 
 
@@ -770,7 +1007,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
             value = useCV2 ? 0x0F : 0x43;
         else
             value = useCV2 ? 0x1C : 0x50;
-        this.sendSysEx ("37 26 " + StringUtils.toHexStr (value) + SYSEX_ZERO_PADDING);
+        this.sendSysex ("37 26 " + StringUtils.toHexStr (value) + SYSEX_ZERO_PADDING);
     }
 
 
@@ -781,7 +1018,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     {
         // 0 = Line, 1 = Instrument, 2 = High
         final int preampType = this.configuration.getPreamp1Type ();
-        this.sendSysEx ("37 1A " + StringUtils.toHexStr (preampType) + SYSEX_ZERO_PADDING);
+        this.sendSysex ("37 1A " + StringUtils.toHexStr (preampType) + SYSEX_ZERO_PADDING);
     }
 
 
@@ -792,7 +1029,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     {
         // 0 = Line, 1 = Instrument, 2 = High
         final int preampType = this.configuration.getPreamp2Type ();
-        this.sendSysEx ("37 1B " + StringUtils.toHexStr (preampType) + SYSEX_ZERO_PADDING);
+        this.sendSysex ("37 1B " + StringUtils.toHexStr (preampType) + SYSEX_ZERO_PADDING);
     }
 
 
@@ -803,7 +1040,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     {
         // The gain in steps of two (1dB = 2) in the range of 0x00 (20dB) to 0x28 (no gain)
         final int preampGain = (PushConfiguration.PREAMP_GAIN_OPTIONS.length - 1 - this.configuration.getPreamp1Gain ()) * 2;
-        this.sendSysEx ("37 02 " + StringUtils.toHexStr (preampGain) + SYSEX_ZERO_PADDING);
+        this.sendSysex ("37 02 " + StringUtils.toHexStr (preampGain) + SYSEX_ZERO_PADDING);
     }
 
 
@@ -814,7 +1051,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     {
         // The gain in steps of two (1dB = 2) in the range of 0x00 (20dB) to 0x28 (no gain)
         final int preampGain = (PushConfiguration.PREAMP_GAIN_OPTIONS.length - 1 - this.configuration.getPreamp2Gain ()) * 2;
-        this.sendSysEx ("37 03 " + StringUtils.toHexStr (preampGain) + SYSEX_ZERO_PADDING);
+        this.sendSysex ("37 03 " + StringUtils.toHexStr (preampGain) + SYSEX_ZERO_PADDING);
     }
 
 
@@ -827,7 +1064,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
         // Speaker 3/4
         final int audioOutputs = this.configuration.getAudioOutputs ();
         final int value = audioOutputs == 0 ? 0 : audioOutputs + 1;
-        this.sendSysEx ("37 11 " + StringUtils.toHexStr (value) + SYSEX_ZERO_PADDING);
+        this.sendSysex ("37 11 " + StringUtils.toHexStr (value) + SYSEX_ZERO_PADDING);
     }
 
 
@@ -836,7 +1073,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
      *
      * @param parameters The parameters to send
      */
-    public void sendSysEx (final int [] parameters)
+    public void sendSysex (final int [] parameters)
     {
         this.output.sendSysex (SYSEX_HEADER_TEXT + StringUtils.toHexStr (parameters) + "F7");
     }
@@ -847,7 +1084,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
      *
      * @param parameters The parameters to send
      */
-    public void sendSysEx (final String parameters)
+    public void sendSysex (final String parameters)
     {
         this.output.sendSysex (SYSEX_HEADER_TEXT + parameters + " F7");
     }
@@ -864,13 +1101,27 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     }
 
 
-    private static int [] generateVelocityCurve (final int sensitivity, final int gain, final int dynamics)
+    /**
+     * Get the pad sensitivity curve for the Push 2.
+     *
+     * @return The curve with 128 entries
+     */
+    public int [] createPadSensitivityCurvePush2 ()
     {
+        final int sensitivity = this.configuration.getPadSensitivityPush2 ();
+        final int gain = this.configuration.getPadGainPush2 ();
+        final int dynamics = this.configuration.getPadDynamicsPush2 ();
+        if (this.currentPadSensitivityPush2 == sensitivity && this.currentPadGainPush2 == gain && this.currentPadDynamicsPush2 == dynamics)
+            return this.currentCurve;
+        this.currentPadSensitivityPush2 = sensitivity;
+        this.currentPadGainPush2 = gain;
+        this.currentPadDynamicsPush2 = dynamics;
+
         final int minw = 160;
         final int maxw = MAXW[sensitivity];
         final int minv = MINV[gain];
         final int maxv = MAXV[gain];
-        final double [] result = calculatePoints (ALPHA[dynamics]);
+        final double [] result = calculatePointsPush2 (ALPHA[dynamics]);
         final double p1x = result[0];
         final double p1y = result[1];
         final double p2x = result[2];
@@ -893,19 +1144,21 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
             else
             {
                 final double wnorm = (w - minw) / (maxw - minw);
-                final double [] bez = bezier (wnorm, t, p1x, p1y, p2x, p2y);
+                final double [] bez = bezierPush2 (wnorm, t, p1x, p1y, p2x, p2y);
                 final double b = bez[0];
                 t = bez[1];
                 final double velonorm = gammaFunc (b, GAMMA[gain]);
                 velocity = minv + velonorm * (maxv - minv);
             }
-            curve[index] = (int) Math.min (Math.max (Math.round (velocity), 1), 127);
+            curve[index] = Math.clamp (Math.round (velocity), 1, 127);
         }
+
+        this.currentCurve = curve;
         return curve;
     }
 
 
-    private static double [] bezier (final double x, final double t, final double p1x, final double p1y, final double p2x, final double p2y)
+    private static double [] bezierPush2 (final double x, final double t, final double p1x, final double p1y, final double p2x, final double p2y)
     {
         final double p0x = 0.0;
         final double p0y = 0.0;
@@ -942,7 +1195,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     }
 
 
-    private static double [] calculatePoints (final double alpha)
+    private static double [] calculatePointsPush2 (final double alpha)
     {
         final double a1 = (225.0 - alpha) * Math.PI / 180.0;
         final double a2 = (45.0 - alpha) * Math.PI / 180.0;
@@ -1131,7 +1384,7 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
      */
     public void updateMPE ()
     {
-        final boolean mpeEnabled = this.getViewManager ().getActive () instanceof IExpressionView && this.configuration.isMPEEnabled ();
+        final boolean mpeEnabled = this.isMPEEnabled ();
         final INoteInput input = this.input.getDefaultNoteInput ();
         input.enableMPE (mpeEnabled);
         this.sendMPEActive (mpeEnabled);
@@ -1139,8 +1392,14 @@ public class PushControlSurface extends AbstractControlSurface<PushConfiguration
     }
 
 
+    private boolean isMPEEnabled ()
+    {
+        return this.getViewManager ().getActive () instanceof IExpressionView && this.configuration.isMPEEnabled ();
+    }
+
+
     /**
-     * Update the MPE pitchbend range (only Push 3).
+     * Update the MPE pitch-bend range (only Push 3).
      */
     public void updateMPEPitchbendRange ()
     {

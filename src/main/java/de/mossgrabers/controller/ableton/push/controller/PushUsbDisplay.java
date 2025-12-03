@@ -4,17 +4,17 @@
 
 package de.mossgrabers.controller.ableton.push.controller;
 
+import java.nio.ByteBuffer;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.IMemoryBlock;
 import de.mossgrabers.framework.graphics.IBitmap;
 import de.mossgrabers.framework.usb.IUsbDevice;
 import de.mossgrabers.framework.usb.IUsbEndpoint;
 import de.mossgrabers.framework.usb.UsbException;
-
-import java.nio.ByteBuffer;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -31,10 +31,6 @@ public class PushUsbDisplay
 
     private static final byte []           DISPLAY_HEADER   =
     {
-        // (byte) 0xef,
-        // (byte) 0xcd,
-        // (byte) 0xab,
-        // (byte) 0x89,
         (byte) 0xFF,
         (byte) 0xCC,
         (byte) 0xAA,
@@ -83,7 +79,7 @@ public class PushUsbDisplay
         {
             this.usbDevice = null;
             this.usbEndpoint = null;
-            host.error ("Could not open USB output.");
+            host.error ("Could not open USB output: " + ex.getLocalizedMessage ());
         }
 
         this.headerBlock = host.createMemoryBlock (DISPLAY_HEADER.length);

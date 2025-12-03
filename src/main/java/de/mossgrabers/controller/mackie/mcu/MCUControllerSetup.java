@@ -83,6 +83,7 @@ import de.mossgrabers.framework.controller.OutputID;
 import de.mossgrabers.framework.controller.hardware.BindType;
 import de.mossgrabers.framework.controller.hardware.IHwFader;
 import de.mossgrabers.framework.controller.hardware.IHwRelativeKnob;
+import de.mossgrabers.framework.controller.valuechanger.IValueChanger;
 import de.mossgrabers.framework.controller.valuechanger.RelativeEncoding;
 import de.mossgrabers.framework.controller.valuechanger.SignedBit2RelativeValueChanger;
 import de.mossgrabers.framework.daw.IApplication;
@@ -170,6 +171,7 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
     private final int []                                          faderValues      = new int [32];
     private int                                                   masterFaderValue = -1;
     private final int                                             numMCUDevices;
+    private IValueChanger                                         encoderValueChanger;
     private JogWheelCommand<MCUControlSurface, MCUConfiguration>  jogWheelCommand  = null;
     private MasterVolumeMode<MCUControlSurface, MCUConfiguration> masterVolumeMode;
 
@@ -195,6 +197,7 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
 
         this.colorManager = new MCUColorManager ();
         this.valueChanger = new SignedBit2RelativeValueChanger (16241 + 1, 10);
+        this.encoderValueChanger = new SignedBit2RelativeValueChanger (16241 + 1, 10);
         this.configuration = new MCUConfiguration (host, this.valueChanger, numMCUDevices, factory.getArpeggiatorModes ());
     }
 
@@ -374,7 +377,7 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
                 modeManager.setActive (Modes.MASTER);
         });
 
-        this.configuration.addSettingObserver (AbstractConfiguration.ENABLE_VU_METERS, () -> {
+        this.configuration.addSettingObserver (AbstractConfiguration.VU_METER_TYPE, () -> {
             for (int index = 0; index < this.numMCUDevices; index++)
             {
                 final MCUControlSurface surface = this.getSurface (index);
@@ -446,7 +449,7 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
 
             if (this.configuration.getDeviceType (index) == MCUDeviceType.MAIN)
             {
-                this.jogWheelCommand = new JogWheelCommand<> (this.model, surface);
+                this.jogWheelCommand = new JogWheelCommand<> (this.model, surface, this.encoderValueChanger);
 
                 // Navigation
                 final MCUWindCommand rewindCommand = new MCUWindCommand (this.model, surface, false);
@@ -554,7 +557,10 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
                 // Only MCU
                 this.addButton (surface, ButtonID.SAVE, "Save", new SaveCommand<> (this.model, surface), 0, MCUControlSurface.MCU_SAVE, () -> this.model.getProject ().isDirty ());
                 this.addButton (surface, ButtonID.MARKER, "Marker", new MarkerCommand<> (this.model, surface), 0, MCUControlSurface.MCU_MARKER, () -> surface.getButton (ButtonID.SHIFT).isPressed () ? this.model.getArranger ().areCueMarkersVisible () : modeManager.isActive (Modes.MARKERS));
-                // MCUControlSurface.MCU_EDIT - was used to toggle VU
+                this.addButton (surface, ButtonID.TOGGLE_VU, "Toggle VU", (event, velocity) -> {
+                    if (event == ButtonEvent.DOWN)
+                        this.configuration.toggleVuMetersEnabled ();
+                }, 0, MCUControlSurface.MCU_EDIT, () -> this.configuration.areVuMetersEnabled ());
 
                 this.addLight (surface, OutputID.LED1, 0, MCUControlSurface.MCU_SMPTE_LED, () -> this.configuration.isDisplayTicks () ? 2 : 0);
                 this.addLight (surface, OutputID.LED2, 0, MCUControlSurface.MCU_BEATS_LED, () -> !this.configuration.isDisplayTicks () ? 2 : 0);
@@ -696,8 +702,7 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
                 surface.getButton (ButtonID.NEW).setBounds (392.0, 942.0, 77.75, 39.75);
                 surface.getButton (ButtonID.SAVE).setBounds (921.5, 320.25, 65.0, 39.75);
                 surface.getButton (ButtonID.MARKER).setBounds (632.5, 225.25, 65.0, 39.75);
-                // Currently not used:
-                // surface.getButton (ButtonID.TOGGLE_VU).setBounds (790.25, 92.5, 77.75, 39.75);
+                surface.getButton (ButtonID.TOGGLE_VU).setBounds (790.25, 92.5, 77.75, 39.75);
 
                 surface.getContinuous (ContinuousID.PLAY_POSITION).setBounds (859.5, 806.5, 115.25, 115.75);
                 surface.getContinuous (ContinuousID.FADER_MASTER).setBounds (613.5, 501.5, 65.0, 419.0);
@@ -775,7 +780,7 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
             surface.switchVuMode (MCUControlSurface.VUMODE_LED);
 
             surface.getViewManager ().setActive (Views.CONTROL);
-            surface.getModeManager ().setActive (Modes.PAN);
+            surface.getModeManager ().setActive (this.configuration.getStartupMode ());
         }
     }
 
@@ -814,7 +819,7 @@ public class MCUControllerSetup extends AbstractControllerSetup<MCUControlSurfac
 
     private void updateVUMeters ()
     {
-        if (!this.configuration.isEnableVUMeters ())
+        if (!this.configuration.isEnableVUMeters () || !this.configuration.areVuMetersEnabled ())
             return;
 
         final Modes activeMode = this.getSurface ().getModeManager ().getActiveID ();

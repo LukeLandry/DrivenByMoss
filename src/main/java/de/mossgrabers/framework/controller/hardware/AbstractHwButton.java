@@ -4,13 +4,13 @@
 
 package de.mossgrabers.framework.controller.hardware;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import de.mossgrabers.framework.command.core.TriggerCommand;
 import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.utils.ButtonEvent;
 import de.mossgrabers.framework.utils.TimeoutOptimizer;
-
-import java.util.ArrayList;
-import java.util.List;
 
 
 /**
@@ -68,10 +68,11 @@ public abstract class AbstractHwButton extends AbstractHwInputControl implements
     /**
      * Handle a button press.
      *
-     * @param value The pressure value
+     * @param value The pressure value in the range of [0..1]
      */
     protected void handleButtonPressed (final double value)
     {
+        // This is necessary since it is called as well for an release event!
         if (value == 0)
             return;
 

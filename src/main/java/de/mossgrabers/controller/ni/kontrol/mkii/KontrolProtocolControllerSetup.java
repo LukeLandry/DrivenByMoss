@@ -9,17 +9,21 @@ import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.IntSupplier;
 
-import de.mossgrabers.controller.ni.kontrol.mkii.command.trigger.ModeSwitcherCommand;
+import de.mossgrabers.controller.ni.kontrol.mkii.command.trigger.KontrolProtocolMuteCommand;
+import de.mossgrabers.controller.ni.kontrol.mkii.command.trigger.KontrolProtocolSoloCommand;
 import de.mossgrabers.controller.ni.kontrol.mkii.command.trigger.StartClipOrSceneCommand;
 import de.mossgrabers.controller.ni.kontrol.mkii.controller.KontrolProtocol;
 import de.mossgrabers.controller.ni.kontrol.mkii.controller.KontrolProtocolColorManager;
 import de.mossgrabers.controller.ni.kontrol.mkii.controller.KontrolProtocolControlSurface;
+import de.mossgrabers.controller.ni.kontrol.mkii.mode.FakeParamsMode;
+import de.mossgrabers.controller.ni.kontrol.mkii.mode.LayerMode;
 import de.mossgrabers.controller.ni.kontrol.mkii.mode.MixerMode;
 import de.mossgrabers.controller.ni.kontrol.mkii.mode.ParamsMode;
 import de.mossgrabers.controller.ni.kontrol.mkii.mode.SendMode;
 import de.mossgrabers.controller.ni.kontrol.mkii.view.ControlView;
 import de.mossgrabers.framework.command.core.NopCommand;
 import de.mossgrabers.framework.command.core.TriggerCommand;
+import de.mossgrabers.framework.command.trigger.ShiftCommand;
 import de.mossgrabers.framework.command.trigger.application.RedoCommand;
 import de.mossgrabers.framework.command.trigger.application.UndoCommand;
 import de.mossgrabers.framework.command.trigger.clip.NewCommand;
@@ -44,11 +48,14 @@ import de.mossgrabers.framework.controller.ISetupFactory;
 import de.mossgrabers.framework.controller.hardware.BindType;
 import de.mossgrabers.framework.controller.hardware.IHwRelativeKnob;
 import de.mossgrabers.framework.controller.valuechanger.TwosComplementValueChanger;
+import de.mossgrabers.framework.daw.IBrowser;
 import de.mossgrabers.framework.daw.IClipLauncherNavigator;
 import de.mossgrabers.framework.daw.IHost;
 import de.mossgrabers.framework.daw.ITransport;
 import de.mossgrabers.framework.daw.ModelSetup;
+import de.mossgrabers.framework.daw.constants.Capability;
 import de.mossgrabers.framework.daw.constants.DeviceID;
+import de.mossgrabers.framework.daw.data.ICursorDevice;
 import de.mossgrabers.framework.daw.data.ISpecificDevice;
 import de.mossgrabers.framework.daw.data.ITrack;
 import de.mossgrabers.framework.daw.data.bank.ITrackBank;
@@ -62,6 +69,7 @@ import de.mossgrabers.framework.mode.Modes;
 import de.mossgrabers.framework.scale.Scales;
 import de.mossgrabers.framework.utils.ButtonEvent;
 import de.mossgrabers.framework.utils.FrameworkException;
+import de.mossgrabers.framework.utils.IntConsumerSupplier;
 import de.mossgrabers.framework.utils.OperatingSystem;
 import de.mossgrabers.framework.view.Views;
 
@@ -71,10 +79,31 @@ import de.mossgrabers.framework.view.Views;
  *
  * @author Jürgen Moßgraber
  */
-public class KontrolProtocolControllerSetup extends AbstractControllerSetup<KontrolProtocolControlSurface, KontrolProtocolConfiguration>
+public class KontrolProtocolControllerSetup extends AbstractControllerSetup<KontrolProtocolControlSurface, KontrolProtocolConfiguration> implements NIHIASysExCallback
 {
-    private final int version;
-    private String    kompleteInstance = "";
+    private static final Modes []                                                               WORKAROUND_MODES      =
+    {
+        Modes.VOLUME,
+        Modes.SEND,
+        Modes.DEVICE_PARAMS
+    };
+
+    private static final Modes []                                                               MIX_MODES_WITH_LAYERS =
+    {
+        Modes.VOLUME,
+        Modes.SEND,
+        Modes.DEVICE_LAYER
+    };
+
+    private static final Modes []                                                               MIX_MODES             =
+    {
+        Modes.VOLUME,
+        Modes.SEND
+    };
+
+    private ModeMultiSelectCommand<KontrolProtocolControlSurface, KontrolProtocolConfiguration> switcher;
+    private final int                                                                           version;
+    private long                                                                                lastTriggerTime       = -1;
 
 
     /**
@@ -113,19 +142,9 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
     @Override
     public void flush ()
     {
-        final KontrolProtocolControlSurface surface = this.getSurface ();
-
         // Do not flush until handshake has finished
-        if (!surface.isConnectedToNIHIA ())
-            return;
-
-        final String kompleteInstanceNew = this.getKompleteInstance ();
-        if (!this.kompleteInstance.equals (kompleteInstanceNew))
-        {
-            this.kompleteInstance = kompleteInstanceNew;
-            surface.sendKontrolTrackSysEx (KontrolProtocolControlSurface.KONTROL_TRACK_INSTANCE, 0, 0, kompleteInstanceNew);
-        }
-        super.flush ();
+        if (this.getSurface ().isConnectedToNIHIA ())
+            super.flush ();
     }
 
 
@@ -148,7 +167,7 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
                 "9?????" /* Note on */, "A?????" /* Poly-Aftertouch */,
                 "B?????" /* Sustain-pedal + Modulation + Strip */, "D?????" /* Channel-Aftertouch */,
                 "E?????" /* Pitch-bend */);
-        final KontrolProtocolControlSurface surface = new KontrolProtocolControlSurface (this.host, this.colorManager, this.configuration, output, midiAccess.createInput (null), this.version);
+        final KontrolProtocolControlSurface surface = new KontrolProtocolControlSurface (this.host, this.colorManager, this.configuration, output, midiAccess.createInput (null), this, this.version);
         this.surfaces.add (surface);
 
         surface.addPianoKeyboard (49, pianoInput, true);
@@ -161,14 +180,15 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
     {
         final ModelSetup ms = new ModelSetup ();
         ms.enableMainDrumDevice (false);
+        ms.enableDevice (DeviceID.FIRST_INSTRUMENT);
         ms.enableDevice (DeviceID.NI_KOMPLETE);
         ms.setHasFullFlatTrackList (true);
-        ms.setNumFilterColumnEntries (0);
-        ms.setNumResults (0);
-        ms.setNumDeviceLayers (0);
-        ms.setNumDrumPadLayers (0);
+        ms.setNumDevicesInBank (64);
+        ms.setNumDeviceLayers (8);
+        ms.setNumDrumPadLayers (8);
         ms.setNumMarkers (0);
         ms.setWantsClipLauncherNavigator (true);
+        ms.setCursorLayer (true);
         this.model = this.factory.createModel (this.configuration, this.colorManager, this.valueChanger, this.scales, ms);
 
         this.model.getTrackBank ().setIndication (true);
@@ -192,12 +212,21 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
         final KontrolProtocolControlSurface surface = this.getSurface ();
         final ModeManager modeManager = surface.getModeManager ();
 
-        final List<ContinuousID> controls = ContinuousID.createSequentialList (ContinuousID.KNOB1, 8);
-        controls.addAll (ContinuousID.createSequentialList (ContinuousID.FADER1, 8));
+        final List<ContinuousID> mixerControls = ContinuousID.createSequentialList (ContinuousID.KNOB1, 8);
+        mixerControls.addAll (ContinuousID.createSequentialList (ContinuousID.FADER1, 8));
 
-        modeManager.register (Modes.VOLUME, new MixerMode (surface, this.model, controls));
-        modeManager.register (Modes.SEND, new SendMode (surface, this.model, controls));
-        modeManager.register (Modes.DEVICE_PARAMS, new ParamsMode (surface, this.model, controls));
+        modeManager.register (Modes.VOLUME, new MixerMode (surface, this.model, mixerControls));
+        modeManager.register (Modes.SEND, new SendMode (surface, this.model, mixerControls));
+
+        if (this.version < KontrolProtocol.VERSION_3)
+            modeManager.register (Modes.DEVICE_PARAMS, new FakeParamsMode (surface, this.model, mixerControls));
+        else
+        {
+            final List<ContinuousID> paramControls = ContinuousID.createSequentialList (ContinuousID.PARAM_KNOB1, 8);
+            modeManager.register (Modes.DEVICE_PARAMS, new ParamsMode (surface, this.model, paramControls));
+            if (this.host.supports (Capability.HAS_DEVICE_LAYERS))
+                modeManager.register (Modes.DEVICE_LAYER, new LayerMode (surface, this.model, mixerControls));
+        }
     }
 
 
@@ -206,6 +235,8 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
     protected void createObservers ()
     {
         super.createObservers ();
+
+        this.configuration.addSettingObserver (KontrolProtocolConfiguration.DAW_SWITCH, () -> this.sendDAWInfo ());
 
         this.configuration.registerDeactivatedItemsHandler (this.model);
     }
@@ -218,78 +249,104 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
         final KontrolProtocolControlSurface surface = this.getSurface ();
         final ITransport t = this.model.getTransport ();
 
-        final ModeMultiSelectCommand<KontrolProtocolControlSurface, KontrolProtocolConfiguration> modeSwitchCommand = new ModeMultiSelectCommand<> (this.model, surface, Modes.VOLUME, Modes.SEND, Modes.DEVICE_PARAMS);
+        this.switcher = new ModeMultiSelectCommand<> (this.model, surface, this.host.supports (Capability.HAS_DEVICE_LAYERS) ? MIX_MODES_WITH_LAYERS : MIX_MODES);
 
-        final TriggerCommand restartCommand = new ModeSwitcherCommand (new NewCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.RESTART, this.configuration);
-        final TriggerCommand redoCommand = new ModeSwitcherCommand (new RedoCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.REDO, this.configuration);
-        final TriggerCommand quantizeCommand = new ModeSwitcherCommand (new QuantizeCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.QUANTIZE, this.configuration);
-        final TriggerCommand loopCommand = new ModeSwitcherCommand (new ToggleLoopCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.LOOP, this.configuration);
-        final TriggerCommand stopCommand = new ModeSwitcherCommand (new StopCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.STOP, this.configuration);
-        final TriggerCommand autoCommand = new ModeSwitcherCommand (new WriteArrangerAutomationCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.AUTO, this.configuration);
-        final TriggerCommand tempoCommand = new ModeSwitcherCommand (new TapTempoCommand<> (this.model, surface), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.TEMPO, this.configuration);
-        final TriggerCommand metronomeCommand = new ModeSwitcherCommand (new MetronomeCommand<> (this.model, surface, false), modeSwitchCommand, KontrolProtocolConfiguration.SwitchButton.METRONOME, this.configuration);
-
-        this.addButton (ButtonID.PLAY, "Play", new PlayCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.KONTROL_PLAY, t::isPlaying);
-        this.addButton (ButtonID.NEW, "Restart", restartCommand, 15, KontrolProtocolControlSurface.KONTROL_RESTART);
+        this.addButton (ButtonID.PLAY, "Play", new PlayCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_PLAY, t::isPlaying);
+        this.addButton (ButtonID.NEW, "Restart", new NewCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_RESTART);
         final ConfiguredRecordCommand<KontrolProtocolControlSurface, KontrolProtocolConfiguration> recordCommand = new ConfiguredRecordCommand<> (false, this.model, surface);
-        this.addButton (ButtonID.RECORD, "Record", recordCommand, 15, KontrolProtocolControlSurface.KONTROL_RECORD, (BooleanSupplier) recordCommand::isLit);
+        this.addButton (ButtonID.RECORD, "Record", recordCommand, 15, KontrolProtocolControlSurface.CC_RECORD, (BooleanSupplier) recordCommand::isLit);
         final ConfiguredRecordCommand<KontrolProtocolControlSurface, KontrolProtocolConfiguration> shiftedRecordCommand = new ConfiguredRecordCommand<> (true, this.model, surface);
-        this.addButton (ButtonID.REC_ARM, "Shift+\nRecord", shiftedRecordCommand, 15, KontrolProtocolControlSurface.KONTROL_COUNT_IN, (BooleanSupplier) shiftedRecordCommand::isLit);
-        this.addButton (ButtonID.STOP, "Stop", stopCommand, 15, KontrolProtocolControlSurface.KONTROL_STOP, () -> !t.isPlaying ());
+        this.addButton (ButtonID.REC_ARM, "Shift+\nRecord", shiftedRecordCommand, 15, KontrolProtocolControlSurface.CC_COUNT_IN, (BooleanSupplier) shiftedRecordCommand::isLit);
+        this.addButton (ButtonID.STOP, "Stop", new StopCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_STOP, () -> !t.isPlaying ());
 
-        this.addButton (ButtonID.LOOP, "Loop", loopCommand, 15, KontrolProtocolControlSurface.KONTROL_LOOP, t::isLoop);
-        this.addButton (ButtonID.METRONOME, "Metronome", metronomeCommand, 15, KontrolProtocolControlSurface.KONTROL_METRO, t::isMetronomeOn);
-        this.addButton (ButtonID.TAP_TEMPO, "Tempo", tempoCommand, 15, KontrolProtocolControlSurface.KONTROL_TAP_TEMPO);
+        this.addButton (ButtonID.LOOP, "Loop", new ToggleLoopCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_LOOP, t::isLoop);
+        this.addButton (ButtonID.METRONOME, "Metronome", new MetronomeCommand<> (this.model, surface, false), 15, KontrolProtocolControlSurface.CC_METRO, t::isMetronomeOn);
+        this.addButton (ButtonID.TAP_TEMPO, "Tempo", new TapTempoCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_TAP_TEMPO);
 
         // Note: Since there is no pressed-state with this device, in the simulator-GUI the
         // following buttons are always on
-        this.addButton (ButtonID.UNDO, "Undo", new UndoCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.KONTROL_UNDO, () -> this.model.getApplication ().canUndo ());
-        this.addButton (ButtonID.REDO, "Redo", redoCommand, 15, KontrolProtocolControlSurface.KONTROL_REDO, () -> this.model.getApplication ().canRedo ());
-        this.addButton (ButtonID.QUANTIZE, "Quantize", quantizeCommand, 15, KontrolProtocolControlSurface.KONTROL_QUANTIZE, () -> true);
-        this.addButton (ButtonID.AUTOMATION, "Automation", autoCommand, 15, KontrolProtocolControlSurface.KONTROL_AUTOMATION, t::isWritingArrangerAutomation);
+        this.addButton (ButtonID.UNDO, "Undo", new UndoCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_UNDO, () -> this.model.getApplication ().canUndo ());
+        this.addButton (ButtonID.REDO, "Redo", new RedoCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_REDO, () -> this.model.getApplication ().canRedo ());
+        this.addButton (ButtonID.QUANTIZE, "Quantize", new QuantizeCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_QUANTIZE, () -> true);
+        this.addButton (ButtonID.AUTOMATION, "Automation", new WriteArrangerAutomationCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_AUTOMATION, t::isWritingArrangerAutomation);
 
-        this.addButton (ButtonID.DELETE, "Modes", modeSwitchCommand, 15, KontrolProtocolControlSurface.KONTROL_CLEAR, () -> true);
+        final ModeMultiSelectCommand<KontrolProtocolControlSurface, KontrolProtocolConfiguration> modeSwitchCommand = new ModeMultiSelectCommand<> (this.model, surface, WORKAROUND_MODES);
+        this.addButton (ButtonID.DELETE, "Modes", modeSwitchCommand, 15, KontrolProtocolControlSurface.CC_CLEAR, () -> true);
 
-        this.addButton (ButtonID.CLIP, "Start Clip", new StartClipOrSceneCommand (this.model, surface), 15, KontrolProtocolControlSurface.KONTROL_PLAY_SELECTED_CLIP);
-        this.addButton (ButtonID.STOP_CLIP, "Stop Clip", new StopClipCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.KONTROL_STOP_CLIP);
+        this.addButton (ButtonID.CLIP, "Start Clip", new StartClipOrSceneCommand (this.model, surface), 15, KontrolProtocolControlSurface.CC_PLAY_SELECTED_CLIP);
+        this.addButton (ButtonID.STOP_CLIP, "Stop Clip", new StopClipCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_STOP_CLIP);
         // Not implemented in NIHIA
-        this.addButton (ButtonID.SCENE1, "Play Scene", new StartSceneCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.KONTROL_PLAY_SCENE);
+        this.addButton (ButtonID.SCENE1, "Play Scene", new StartSceneCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_PLAY_SCENE);
 
-        // KONTROL_RECORD_SESSION - Not implemented in NIHIA
+        // CC_RECORD_SESSION - Not implemented in NIHIA
 
-        this.addButton (ButtonID.MUTE, "Mute", new MuteCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.KONTROL_SELECTED_TRACK_MUTE, () -> {
+        this.addButton (ButtonID.MUTE, "Mute", new MuteCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_SELECTED_TRACK_MUTE, () -> {
             final ITrackBank tb = this.model.getCurrentTrackBank ();
             final Optional<ITrack> selectedTrack = tb.getSelectedItem ();
             return selectedTrack.isPresent () && selectedTrack.get ().isMute () ? 1 : 0;
         });
-        this.addButton (ButtonID.SOLO, "Solo", new SoloCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.KONTROL_SELECTED_TRACK_SOLO, () -> {
+        this.addButton (ButtonID.SOLO, "Solo", new SoloCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_SELECTED_TRACK_SOLO, () -> {
             final ITrackBank tb = this.model.getCurrentTrackBank ();
             final Optional<ITrack> selectedTrack = tb.getSelectedItem ();
             return selectedTrack.isPresent () && selectedTrack.get ().isSolo () ? 1 : 0;
         });
 
-        this.addButtons (surface, 0, 8, ButtonID.ROW_SELECT_1, "Select", (event, index) -> {
+        this.addButtons (surface, 0, 8, ContinuousID.TRACK_SELECT, "Select", (event, index) -> {
             if (event == ButtonEvent.DOWN)
                 this.model.getCurrentTrackBank ().getItem (index).selectOrExpandGroup ();
-        }, 15, KontrolProtocolControlSurface.KONTROL_TRACK_SELECTED, index -> this.model.getTrackBank ().getItem (index).isSelected () ? 1 : 0);
+        }, 15, KontrolProtocolControlSurface.SYSEX_TRACK_SELECTED, index -> this.model.getTrackBank ().getItem (index).isSelected () ? 1 : 0);
 
-        this.addButtons (surface, 0, 8, ButtonID.ROW1_1, "Mute", (event, index) -> {
-            if (event == ButtonEvent.DOWN)
-                this.model.getTrackBank ().getItem (index).toggleMute ();
-        }, 15, KontrolProtocolControlSurface.KONTROL_TRACK_MUTE, index -> this.model.getTrackBank ().getItem (index).isMute () ? 1 : 0);
+        this.addButtons (surface, 0, 8, ContinuousID.TRACK_MUTE, "Mute", new KontrolProtocolMuteCommand (this.model, surface), 15, KontrolProtocolControlSurface.SYSEX_TRACK_MUTE, index -> this.model.getTrackBank ().getItem (index).isMute () ? 1 : 0);
+        this.addButtons (surface, 0, 8, ContinuousID.TRACK_SOLO, "Solo", new KontrolProtocolSoloCommand (this.model, surface), 15, KontrolProtocolControlSurface.SYSEX_TRACK_SOLO, index -> this.model.getTrackBank ().getItem (index).isSolo () ? 1 : 0);
 
-        this.addButtons (surface, 0, 8, ButtonID.ROW2_1, "Solo", (event, index) -> {
-            if (event == ButtonEvent.DOWN)
-                this.model.getTrackBank ().getItem (index).toggleSolo ();
-        }, 15, KontrolProtocolControlSurface.KONTROL_TRACK_SOLO, index -> this.model.getTrackBank ().getItem (index).isSolo () ? 1 : 0);
-
-        this.addButtons (surface, 0, 8, ButtonID.ROW3_1, "Arm", (event, index) -> {
+        this.addButtons (surface, 0, 8, ContinuousID.TRACK_ARM, "Arm", (event, index) -> {
             if (event == ButtonEvent.DOWN)
                 this.model.getTrackBank ().getItem (index).toggleRecArm ();
-        }, 15, KontrolProtocolControlSurface.KONTROL_TRACK_RECARM, index -> this.model.getTrackBank ().getItem (index).isRecArm () ? 1 : 0);
+        }, 15, KontrolProtocolControlSurface.SYSEX_TRACK_RECARM, index -> this.model.getTrackBank ().getItem (index).isRecArm () ? 1 : 0);
 
-        this.addButton (ButtonID.F1, "", NopCommand.INSTANCE, 15, KontrolProtocolControlSurface.KONTROL_SELECTED_TRACK_AVAILABLE);
-        this.addButton (ButtonID.F2, "", NopCommand.INSTANCE, 15, KontrolProtocolControlSurface.KONTROL_SELECTED_TRACK_MUTED_BY_SOLO);
+        this.addButton (ButtonID.F1, "", NopCommand.INSTANCE, 15, KontrolProtocolControlSurface.CC_SELECTED_TRACK_AVAILABLE);
+        this.addButton (ButtonID.F2, "", NopCommand.INSTANCE, 15, KontrolProtocolControlSurface.CC_SELECTED_TRACK_MUTED_BY_SOLO);
+
+        if (this.version >= KontrolProtocol.VERSION_4)
+        {
+            this.addButton (ButtonID.SHIFT, "Shift", new ShiftCommand<> (this.model, surface), 15, KontrolProtocolControlSurface.CC_SHIFT);
+            this.addButton (ButtonID.BROWSE, "Browse", this::handleBrowserButtons, 15, KontrolProtocolControlSurface.CC_NAVIGATE_PRESETS, () -> 3);
+        }
+    }
+
+
+    /**
+     * Simulate multiple hardware buttons via an absolute control. Each button is matched by a
+     * specific value. The first value is startValue, which gets increased by one for the other
+     * buttons.
+     *
+     * @param surface The control surface
+     * @param startValue The first matched value
+     * @param numberOfValues The number of buttons
+     * @param continuousID The continuous ID to assign
+     * @param label The label of the button
+     * @param supplier Callback for retrieving the state of the light
+     * @param midiChannel The MIDI channel
+     * @param midiControl The MIDI CC or note
+     * @param command The command to bind
+     * @param colorIds The color IDs to map to the states
+     */
+    protected void addButtons (final KontrolProtocolControlSurface surface, final int startValue, final int numberOfValues, final ContinuousID continuousID, final String label, final TriggerCommand command, final int midiChannel, final int midiControl, final IntConsumerSupplier supplier, final String... colorIds)
+    {
+        this.addAbsoluteKnob (continuousID, label, value -> {
+
+            command.execute (ButtonEvent.DOWN, value);
+            command.execute (ButtonEvent.UP, value);
+
+        }, BindType.CC, midiChannel, midiControl);
+
+        for (int i = 0; i < numberOfValues; i++)
+        {
+            final int index = i;
+
+            final IntSupplier supp = () -> supplier.process (index);
+            this.addLight (surface, null, midiChannel, midiControl, supp, colorIds);
+        }
     }
 
 
@@ -299,33 +356,107 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
     {
         final KontrolProtocolControlSurface surface = this.getSurface ();
 
-        this.addFader (ContinuousID.HELLO, "Hello", surface::handshakeSuccess, BindType.CC, 15, KontrolProtocolControlSurface.CMD_HELLO);
+        this.addFader (ContinuousID.HELLO, "Hello", surface::handshakeSuccess, BindType.CC, 15, KontrolProtocolControlSurface.CC_HELLO);
 
-        this.addButton (surface, ButtonID.BANK_LEFT, "Left", (event, velocity) -> this.moveTrackBank (event, true), 15, KontrolProtocolControlSurface.KONTROL_NAVIGATE_BANKS, 127, () -> this.getKnobValue (KontrolProtocolControlSurface.KONTROL_NAVIGATE_BANKS));
-        this.addButton (surface, ButtonID.BANK_RIGHT, "Right", (event, velocity) -> this.moveTrackBank (event, false), 15, KontrolProtocolControlSurface.KONTROL_NAVIGATE_BANKS, 1, () -> this.getKnobValue (KontrolProtocolControlSurface.KONTROL_NAVIGATE_BANKS));
-        this.addButton (surface, ButtonID.MOVE_TRACK_LEFT, "Enc Left", (event, velocity) -> this.moveTrack (event, true), 15, KontrolProtocolControlSurface.KONTROL_NAVIGATE_TRACKS, 127, () -> this.getKnobValue (KontrolProtocolControlSurface.KONTROL_NAVIGATE_TRACKS));
-        this.addButton (surface, ButtonID.MOVE_TRACK_RIGHT, "Enc Right", (event, velocity) -> this.moveTrack (event, false), 15, KontrolProtocolControlSurface.KONTROL_NAVIGATE_TRACKS, 1, () -> this.getKnobValue (KontrolProtocolControlSurface.KONTROL_NAVIGATE_TRACKS));
-        this.addButton (surface, ButtonID.ARROW_UP, "Enc Up", (event, velocity) -> this.moveClips (event, true), 15, KontrolProtocolControlSurface.KONTROL_NAVIGATE_CLIPS, 127, () -> this.getKnobValue (KontrolProtocolControlSurface.KONTROL_NAVIGATE_CLIPS));
-        this.addButton (surface, ButtonID.ARROW_DOWN, "Enc Down", (event, velocity) -> this.moveClips (event, false), 15, KontrolProtocolControlSurface.KONTROL_NAVIGATE_CLIPS, 1, () -> this.getKnobValue (KontrolProtocolControlSurface.KONTROL_NAVIGATE_CLIPS));
+        this.addButton (surface, ButtonID.BANK_LEFT, "Left", (event, velocity) -> this.moveTrackBank (event, true), 15, KontrolProtocolControlSurface.CC_NAVIGATE_BANKS, 127, () -> this.getKnobValue (KontrolProtocolControlSurface.CC_NAVIGATE_BANKS));
+        this.addButton (surface, ButtonID.BANK_RIGHT, "Right", (event, velocity) -> this.moveTrackBank (event, false), 15, KontrolProtocolControlSurface.CC_NAVIGATE_BANKS, 1, () -> this.getKnobValue (KontrolProtocolControlSurface.CC_NAVIGATE_BANKS));
+        this.addButton (surface, ButtonID.MOVE_TRACK_LEFT, "Enc Left", (event, velocity) -> this.moveTrack (event, true), 15, KontrolProtocolControlSurface.CC_NAVIGATE_TRACKS, 127, () -> this.getKnobValue (KontrolProtocolControlSurface.CC_NAVIGATE_TRACKS));
+        this.addButton (surface, ButtonID.MOVE_TRACK_RIGHT, "Enc Right", (event, velocity) -> this.moveTrack (event, false), 15, KontrolProtocolControlSurface.CC_NAVIGATE_TRACKS, 1, () -> this.getKnobValue (KontrolProtocolControlSurface.CC_NAVIGATE_TRACKS));
+        this.addButton (surface, ButtonID.ARROW_UP, "Enc Up", (event, velocity) -> this.moveClips (event, true), 15, KontrolProtocolControlSurface.CC_NAVIGATE_CLIPS, 127, () -> this.getKnobValue (KontrolProtocolControlSurface.CC_NAVIGATE_CLIPS));
+        this.addButton (surface, ButtonID.ARROW_DOWN, "Enc Down", (event, velocity) -> this.moveClips (event, false), 15, KontrolProtocolControlSurface.CC_NAVIGATE_CLIPS, 1, () -> this.getKnobValue (KontrolProtocolControlSurface.CC_NAVIGATE_CLIPS));
 
-        this.addRelativeKnob (ContinuousID.MOVE_TRANSPORT, "Move Transport", value -> this.changeTransportPosition (value, 0), BindType.CC, 15, KontrolProtocolControlSurface.KONTROL_NAVIGATE_MOVE_TRANSPORT);
-        this.addRelativeKnob (ContinuousID.MOVE_LOOP, "Move Loop", this::changeLoopPosition, BindType.CC, 15, KontrolProtocolControlSurface.KONTROL_NAVIGATE_MOVE_LOOP);
+        this.addRelativeKnob (ContinuousID.MOVE_TRANSPORT, "Move Transport", value -> this.changeTransportPosition (value, 0), BindType.CC, 15, KontrolProtocolControlSurface.CC_NAVIGATE_MOVE_TRANSPORT);
+        this.addRelativeKnob (ContinuousID.MOVE_LOOP, "Move Loop", this::changeLoopPosition, BindType.CC, 15, KontrolProtocolControlSurface.CC_NAVIGATE_MOVE_LOOP);
 
         // Only on S models
-        this.addRelativeKnob (ContinuousID.NAVIGATE_VOLUME, "Navigate Volume", value -> this.changeTransportPosition (value, 1), BindType.CC, 15, KontrolProtocolControlSurface.KONTROL_CHANGE_SELECTED_TRACK_VOLUME);
-        this.addRelativeKnob (ContinuousID.NAVIGATE_PAN, "Navigate Pan", value -> this.changeTransportPosition (value, 2), BindType.CC, 15, KontrolProtocolControlSurface.KONTROL_CHANGE_SELECTED_TRACK_PAN);
+        this.addRelativeKnob (ContinuousID.NAVIGATE_VOLUME, "Navigate Volume", value -> this.changeTransportPosition (value, 1), BindType.CC, 15, KontrolProtocolControlSurface.CC_CHANGE_SELECTED_TRACK_VOLUME);
+        this.addRelativeKnob (ContinuousID.NAVIGATE_PAN, "Navigate Pan", value -> this.changeTransportPosition (value, 2), BindType.CC, 15, KontrolProtocolControlSurface.CC_CHANGE_SELECTED_TRACK_PAN);
+
+        if (this.version >= KontrolProtocol.VERSION_4)
+        {
+            this.addButton (surface, ButtonID.LOCK_MODE, "Mode Selection", (event, velocity) -> this.selectMainMode (event, velocity), 15, KontrolProtocolControlSurface.CC_MODE_SELECT);
+
+            for (int i = 0; i < 8; i++)
+            {
+                final int knobMidi1 = KontrolProtocolControlSurface.CC_PARAM_VALUE_CHANGE + i;
+                final IHwRelativeKnob knob1 = this.addRelativeKnob (ContinuousID.get (ContinuousID.PARAM_KNOB1, i), "Param Knob " + (i + 1), null, BindType.CC, 15, knobMidi1);
+                knob1.addOutput ( () -> this.getKnobValue (knobMidi1), value -> surface.setTrigger (15, knobMidi1, value));
+                knob1.setIndexInGroup (i);
+            }
+        }
 
         for (int i = 0; i < 8; i++)
         {
-            final int knobMidi1 = KontrolProtocolControlSurface.KONTROL_TRACK_VOLUME + i;
+            final int knobMidi1 = KontrolProtocolControlSurface.CC_TRACK_VOLUME + i;
             final IHwRelativeKnob knob1 = this.addRelativeKnob (ContinuousID.get (ContinuousID.KNOB1, i), "Knob " + (i + 1), null, BindType.CC, 15, knobMidi1);
             knob1.addOutput ( () -> this.getKnobValue (knobMidi1), value -> surface.setTrigger (15, knobMidi1, value));
             knob1.setIndexInGroup (i);
 
-            final int knobMidi2 = KontrolProtocolControlSurface.KONTROL_TRACK_PAN + i;
+            final int knobMidi2 = KontrolProtocolControlSurface.CC_TRACK_PAN + i;
             final IHwRelativeKnob knob2 = this.addRelativeKnob (ContinuousID.get (ContinuousID.FADER1, i), "Fader " + (i + 1), null, BindType.CC, 15, knobMidi2);
             knob2.addOutput ( () -> this.getKnobValue (knobMidi2), value -> surface.setTrigger (15, knobMidi2, value));
             knob2.setIndexInGroup (i);
+        }
+    }
+
+
+    private void selectMainMode (final ButtonEvent event, final int value)
+    {
+        // Only called from > v3
+
+        if (event != ButtonEvent.UP)
+            return;
+
+        // Prevent double triggers which occur most of the time
+        final long triggerTime = System.currentTimeMillis ();
+        if (this.lastTriggerTime == -1)
+        {
+            // Prevent mode change on startup
+            this.lastTriggerTime = triggerTime;
+            return;
+        }
+        if (triggerTime - this.lastTriggerTime < 300)
+            return;
+        this.lastTriggerTime = triggerTime;
+
+        // Prevent double trigger on button press/release which sends the exact same values
+        final ISpecificDevice nksDevice = this.model.getSpecificDevice (DeviceID.NI_KOMPLETE);
+        final ICursorDevice cursorDevice = this.model.getCursorDevice ();
+        final boolean isNksDeviceSelected = nksDevice.doesExist () && cursorDevice.getPosition () == nksDevice.getPosition ();
+
+        // Note: There is no notification when the special NKS device mode is entered. As a
+        // workaround all switches in the same mode (between device and between volume modes)
+        // are blocked!
+
+        final ModeManager modeManager = this.getSurface ().getModeManager ();
+        final ParamsMode paramsMode = (ParamsMode) modeManager.get (Modes.DEVICE_PARAMS);
+        if (value == 0)
+        {
+            // Switch Volume modes
+            if (!isNksDeviceSelected || paramsMode.getPreviouslySelectedDevice () != nksDevice.getPosition () || modeManager.isActive (Modes.DEVICE_PARAMS))
+                this.switcher.executeNormal (event);
+        }
+        else
+        {
+            // Switch Device modes
+            if (!isNksDeviceSelected || modeManager.isActive (Modes.VOLUME, Modes.SEND, Modes.DEVICE_LAYER))
+            {
+                if (modeManager.isActive (Modes.DEVICE_PARAMS))
+                {
+                    // Prevent accidental switching to Track controls mode when coming from NKS mode
+                    if (paramsMode.isTrackOrProjectMode () || !nksDevice.doesExist () || paramsMode.getPreviouslySelectedDevice () != nksDevice.getPosition ())
+                        paramsMode.selectNextMode ();
+                }
+                else
+                {
+                    final boolean isLayerModeActive = modeManager.isActive (Modes.DEVICE_LAYER);
+                    if (!isLayerModeActive)
+                        cursorDevice.selectParent ();
+
+                    modeManager.setActive (Modes.DEVICE_PARAMS);
+                    paramsMode.enableLayerSubMode (isLayerModeActive);
+                }
+            }
         }
     }
 
@@ -334,6 +465,12 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
     @Override
     protected void addButton (final KontrolProtocolControlSurface surface, final ButtonID buttonID, final String label, final TriggerCommand command, final int midiChannel, final int midiControl, final IntSupplier supplier, final String... colorIds)
     {
+        if (buttonID == ButtonID.SHIFT)
+        {
+            super.addButton (surface, buttonID, label, command, midiChannel, midiControl, supplier, colorIds);
+            return;
+        }
+
         super.addButton (surface, buttonID, label, (event, velocity) -> {
 
             // Since there is only a down event from the device, long has no meaning
@@ -369,39 +506,6 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
         surface.getButton (ButtonID.DELETE).setBounds (225.75, 120.5, 31.75, 22.75);
         surface.getButton (ButtonID.MUTE).setBounds (194.0, 43.0, 24.25, 22.75);
         surface.getButton (ButtonID.SOLO).setBounds (226.25, 43.0, 24.25, 22.75);
-
-        surface.getButton (ButtonID.ROW_SELECT_1).setBounds (276.0, 43.0, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW_SELECT_2).setBounds (330.5, 43.0, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW_SELECT_3).setBounds (385.0, 43.0, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW_SELECT_4).setBounds (439.5, 43.0, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW_SELECT_5).setBounds (494.0, 43.0, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW_SELECT_6).setBounds (548.5, 43.0, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW_SELECT_7).setBounds (602.75, 43.0, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW_SELECT_8).setBounds (657.25, 43.0, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW1_1).setBounds (276.0, 67.5, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW1_2).setBounds (330.5, 67.5, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW1_3).setBounds (385.0, 67.5, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW1_4).setBounds (439.5, 67.5, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW1_5).setBounds (494.0, 67.5, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW1_6).setBounds (548.5, 67.5, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW1_7).setBounds (602.75, 67.5, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW1_8).setBounds (657.25, 67.5, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW2_1).setBounds (276.0, 92.25, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW2_2).setBounds (330.5, 92.25, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW2_3).setBounds (385.0, 92.25, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW2_4).setBounds (439.5, 92.25, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW2_5).setBounds (494.0, 92.25, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW2_6).setBounds (548.5, 92.25, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW2_7).setBounds (602.75, 92.25, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW2_8).setBounds (657.25, 92.25, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW3_1).setBounds (276.0, 116.75, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW3_2).setBounds (330.5, 116.75, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW3_3).setBounds (385.0, 116.75, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW3_4).setBounds (439.5, 116.75, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW3_5).setBounds (494.0, 116.75, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW3_6).setBounds (548.5, 116.75, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW3_7).setBounds (602.75, 116.75, 39.75, 16.0);
-        surface.getButton (ButtonID.ROW3_8).setBounds (657.25, 116.75, 39.75, 16.0);
 
         surface.getButton (ButtonID.BANK_LEFT).setBounds (188.5, 78.5, 29.75, 20.5);
         surface.getButton (ButtonID.BANK_RIGHT).setBounds (225.75, 78.5, 29.75, 20.5);
@@ -454,19 +558,6 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
         surface.getViewManager ().setActive (Views.CONTROL);
         surface.getModeManager ().setActive (Modes.VOLUME);
         surface.initHandshake ();
-    }
-
-
-    /**
-     * Get the name of an Komplete Kontrol instance on the current track.
-     *
-     * @return The instance name, which is the actual label of the first parameter (e.g. NIKB01). An
-     *         empty string if none is present
-     */
-    private String getKompleteInstance ()
-    {
-        final ISpecificDevice kkDevice = this.model.getSpecificDevice (DeviceID.NI_KOMPLETE);
-        return kkDevice.doesExist () ? kkDevice.getID () : "";
     }
 
 
@@ -527,8 +618,10 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
                 break;
 
             case DEVICE_PARAMS:
-                if (modeManager.getActive () instanceof final ParamsMode paramMode)
+                if (modeManager.getActive () instanceof final FakeParamsMode paramMode)
                     paramMode.switchProvider (isLeft);
+                else
+                    this.model.getClipLauncherNavigator ().navigateTracks (isLeft);
                 break;
 
             default:
@@ -540,15 +633,46 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
 
     private void changeTransportPosition (final int value, final int mode)
     {
+        final IBrowser browser = this.model.getBrowser ();
         final boolean increase = mode == 0 ? value == 1 : value <= 63;
-        this.model.getTransport ().changePosition (increase, false);
+        if (this.getSurface ().isShiftPressed ())
+        {
+            if (browser.isActive ())
+            {
+                if (increase)
+                    browser.selectNextFilterItem (2);
+                else
+                    browser.selectPreviousFilterItem (2);
+            }
+            else
+            {
+                if (increase)
+                    this.model.getApplication ().zoomIn ();
+                else
+                    this.model.getApplication ().zoomOut ();
+            }
+        }
+        else
+        {
+            if (browser.isActive ())
+            {
+                if (increase)
+                    browser.selectNextResult ();
+                else
+                    browser.selectPreviousResult ();
+            }
+            else
+                this.model.getTransport ().changePosition (increase, false);
+        }
     }
 
 
     private void changeLoopPosition (final int value)
     {
-        // Changing of loop position is not possible. Therefore, change position fine grained
-        this.model.getTransport ().changePosition (value <= 63, true);
+        if (this.getSurface ().isShiftPressed ())
+            this.model.getTransport ().changeLoopLength (value <= 63, false);
+        else
+            this.model.getTransport ().changeLoopStart (value <= 63, false);
     }
 
 
@@ -571,5 +695,77 @@ public class KontrolProtocolControllerSetup extends AbstractControllerSetup<Kont
     {
         final IMode mode = this.getSurface ().getModeManager ().getActive ();
         return mode == null ? 0 : Math.max (0, mode.getKnobValue (continuousMidiControl));
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public void setTempo (final double tempo)
+    {
+        final ITransport transport = this.model.getTransport ();
+        final double minimumTempo = transport.getMinimumTempo ();
+        final double maximumTempo = transport.getMaximumTempo ();
+        if (tempo < minimumTempo)
+            this.getSurface ().sendTempo (minimumTempo, true);
+        else if (tempo > maximumTempo)
+            this.getSurface ().sendTempo (maximumTempo, true);
+        else
+            transport.setTempo (tempo);
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public void sendDAWInfo ()
+    {
+        // The DAW name trigger the background graphics. "Bitwig" (not "Bitwig Studio") triggers the
+        // Bitwig background. An unknown name triggers an unreadable rainbow background, therefore,
+        // provide an option for the user to decide
+        final int [] version = this.host.getVersion ();
+        final KontrolProtocolControlSurface surface = this.getSurface ();
+        surface.sendDAWInfo (version[0], version[1], surface.getConfiguration ().getSelectedDaw ());
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public void selectDevice (final int deviceIndex)
+    {
+        if (this.getSurface ().getModeManager ().get (Modes.DEVICE_PARAMS) instanceof final ParamsMode mode)
+            mode.selectedDeviceHasChanged (deviceIndex);
+    }
+
+
+    private void handleBrowserButtons (final ButtonEvent event, final int velocity)
+    {
+        if (event != ButtonEvent.DOWN)
+            return;
+
+        final IBrowser browser = this.model.getBrowser ();
+        if (browser.isActive ())
+        {
+            if (this.getSurface ().isShiftPressed ())
+            {
+                browser.stopBrowsing (false);
+                return;
+            }
+
+            if (velocity == 127)
+                browser.selectPreviousResult ();
+            else
+                browser.selectNextResult ();
+        }
+        else
+        {
+            if (this.getSurface ().isShiftPressed ())
+            {
+                if (velocity == 127)
+                    browser.insertBeforeCursorDevice ();
+                else
+                    browser.insertAfterCursorDevice ();
+            }
+            else
+                browser.replace (this.model.getCursorDevice ());
+        }
     }
 }
