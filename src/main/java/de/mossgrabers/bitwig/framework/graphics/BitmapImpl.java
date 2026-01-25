@@ -4,14 +4,14 @@
 
 package de.mossgrabers.bitwig.framework.graphics;
 
-import de.mossgrabers.framework.graphics.IBitmap;
-import de.mossgrabers.framework.graphics.IEncoder;
-import de.mossgrabers.framework.graphics.IRenderer;
+import java.nio.ByteBuffer;
 
 import com.bitwig.extension.api.graphics.Bitmap;
 import com.bitwig.extension.api.graphics.GraphicsOutput.AntialiasMode;
 
-import java.nio.ByteBuffer;
+import de.mossgrabers.framework.graphics.IBitmap;
+import de.mossgrabers.framework.graphics.IEncoder;
+import de.mossgrabers.framework.graphics.IRenderer;
 
 
 /**
