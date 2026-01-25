@@ -4,10 +4,10 @@
 
 package de.mossgrabers.bitwig.framework.midi;
 
-import de.mossgrabers.framework.daw.midi.AbstractMidiOutput;
-
 import com.bitwig.extension.controller.api.ControllerHost;
 import com.bitwig.extension.controller.api.MidiOut;
+
+import de.mossgrabers.framework.daw.midi.AbstractMidiOutput;
 
 
 /**
@@ -45,9 +45,9 @@ class MidiOutputImpl extends AbstractMidiOutput
 
     /** {@inheritDoc} */
     @Override
-    public void sendSysex (final byte [] data)
+    public void sendSysex (final byte []... data)
     {
-        this.port.sendSysex (data);
+        this.port.sendSysex (concatArrays (data));
     }
 
 
