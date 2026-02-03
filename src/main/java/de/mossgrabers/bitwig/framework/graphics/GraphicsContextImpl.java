@@ -4,16 +4,16 @@
 
 package de.mossgrabers.bitwig.framework.graphics;
 
+import com.bitwig.extension.api.graphics.GradientPattern;
+import com.bitwig.extension.api.graphics.GraphicsOutput;
+import com.bitwig.extension.api.graphics.GraphicsOutput.AntialiasMode;
+import com.bitwig.extension.api.graphics.Image;
+
 import de.mossgrabers.framework.controller.color.ColorEx;
 import de.mossgrabers.framework.graphics.Align;
 import de.mossgrabers.framework.graphics.IGraphicsContext;
 import de.mossgrabers.framework.graphics.IImage;
 import de.mossgrabers.framework.utils.StringUtils;
-
-import com.bitwig.extension.api.graphics.GradientPattern;
-import com.bitwig.extension.api.graphics.GraphicsOutput;
-import com.bitwig.extension.api.graphics.GraphicsOutput.AntialiasMode;
-import com.bitwig.extension.api.graphics.Image;
 
 
 /**
@@ -72,7 +72,7 @@ public class GraphicsContextImpl implements IGraphicsContext
     @Override
     public void strokeRectangle (final double left, final double top, final double width, final double height, final ColorEx color, final double lineWidth)
     {
-        // Turn off antialias or otherwise we do not get a single line
+        // Turn off anti-alias or otherwise we do not get a single line
         this.gc.setAntialias (AntialiasMode.OFF);
         this.setColor (color);
         this.gc.setLineWidth (lineWidth);
